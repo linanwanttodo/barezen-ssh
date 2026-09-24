@@ -23,6 +23,7 @@ dependencyResolutionManagement {
                 includeGroupAndSubgroups("com.google")
             }
         }
+        maven("https://packages.jetbrains.team/maven/p/ij/intellij-dependencies")
         mavenCentral()
     }
 }
