@@ -24,6 +24,15 @@ Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
 
 - Desktop tests: `./gradlew :shared:jvmTest`
 
+### Troubleshooting
+
+- **Fonts: JetBrains Mono not applied / boxes instead of glyphs** — the app bundles JetBrains Mono and a
+  Material Symbols woff2 under `docs/ui/fonts/`, but the JVM still resolves fonts through fontconfig on
+  Linux. If the UI or terminal falls back to a wrong font, check that fontconfig sees a usable CJK fallback
+  (`fc-list | grep -i "Noto Sans CJK\|WenQuanYi"`) and refresh its cache after installing fonts
+  (`fc-cache -fv`). Running from a minimal container/chroot without fontconfig installed will always
+  fall back to the JVM default logical fonts.
+
 ---
 
 Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…

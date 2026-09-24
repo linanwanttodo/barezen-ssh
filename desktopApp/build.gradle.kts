@@ -21,7 +21,7 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "com.barezen.barezen_ssh"
+            packageName = "BareZen-SSH"
             packageVersion = "1.0.0"
         }
     }
