@@ -56,6 +56,9 @@ class AppModel(
     }
 
     fun startConnect(server: Server, auth: AuthMethod) {
+        // 防重入：建连进行中忽略新请求——并发协程会互相丢弃会话（孤儿 SSH 连接+keep-alive 线程），
+        // 且 shellSession/connection 两次赋值可能被末写者覆盖成不一致
+        if (connection is ConnectionState.Connecting) return
         connection = ConnectionState.Connecting(server)
         scope.launch {
             try {

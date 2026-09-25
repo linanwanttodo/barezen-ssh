@@ -1,4 +1,4 @@
-// shared/src/commonMain/kotlin/com/barezen/barezen_ssh/ui/screens/PlaceholderScreen.kt
+// shared/src/jvmMain/kotlin/com/barezen/barezen_ssh/ui/screens/PlaceholderScreen.kt
 package com.barezen.barezen_ssh.ui.screens
 
 import androidx.compose.foundation.layout.Box
