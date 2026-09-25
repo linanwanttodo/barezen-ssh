@@ -53,20 +53,8 @@ private class JvmSshSession(private val client: SSHClient) : SshSession {
         val s = client.startSession().also { session = it }
         s.allocateDefaultPTY()
         val shell: Session.Shell = s.startShell()
-        val reader = Thread {
-            val buf = ByteArray(8192)
-            try {
-                val input = shell.inputStream
-                while (true) {
-                    val n = input.read(buf)
-                    if (n < 0) break
-                    if (n > 0) onData(buf.copyOf(n))
-                }
-                onClosed(null)
-            } catch (e: Exception) {
-                onClosed(e)
-            }
-        }.apply { isDaemon = true; name = "ssh-shell-reader"; start() }
+        // Task 7 重构：reader 线程复用 StreamPump（与原内联循环语义一致：EOF→onClosed(null)、异常→onClosed(e)）
+        StreamPump(onData).start(shell.inputStream, onClosed)
         return object : ShellChannel {
             override fun write(bytes: ByteArray) {
                 shell.outputStream.write(bytes)

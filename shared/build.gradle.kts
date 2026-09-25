@@ -28,6 +28,7 @@ kotlin {
         jvmMain.dependencies {
             implementation(libs.sshj)
             implementation(libs.jediterm.ui)
+            implementation(libs.jediterm.core)
         }
         jvmTest.dependencies {
             implementation(libs.sshd.core)
