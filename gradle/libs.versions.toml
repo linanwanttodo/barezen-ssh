@@ -28,6 +28,7 @@ sshj = { module = "com.hierynomus:sshj", version.ref = "sshj" }
 jediterm-ui = { module = "org.jetbrains.jediterm:jediterm-ui", version.ref = "jediterm" }
 sshd-core = { module = "org.apache.sshd:sshd-core", version.ref = "sshd" }
 compose-uiTest = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "composeMultiplatform" }
+compose-materialIcons-extended = { module = "org.jetbrains.compose.material:material-icons-extended", version = "1.7.3" }
 
 [plugins]
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
