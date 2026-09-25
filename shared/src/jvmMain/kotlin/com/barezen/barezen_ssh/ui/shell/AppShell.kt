@@ -32,8 +32,10 @@ import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.Settings
 import com.barezen.barezen_ssh.app.AppModel
 import com.barezen.barezen_ssh.app.Destination
+import com.barezen.barezen_ssh.ui.screens.ConnectDialog
 import com.barezen.barezen_ssh.ui.screens.PlaceholderScreen
 import com.barezen.barezen_ssh.ui.screens.ServersScreen
+import com.barezen.barezen_ssh.ui.screens.TerminalScreen
 import androidx.compose.ui.graphics.vector.ImageVector
 
 private fun railIcon(to: Destination, selected: Boolean): ImageVector = when (to) {
@@ -81,10 +83,10 @@ fun BareZenAppContent(model: AppModel) {
                 when (model.current) {
                     Destination.SERVERS -> ServersScreen(
                         model = model,
-                        onNewTerminal = { model.navigate(Destination.TERMINAL) },
+                        onNewTerminal = { model.requestConnect(it) },
                         onOpenFiles = { model.navigate(Destination.FILES) },
                     )
-                    Destination.TERMINAL -> com.barezen.barezen_ssh.ui.screens.TerminalScreenPlaceholder()
+                    Destination.TERMINAL -> TerminalScreen(model)
                     Destination.FILES -> PlaceholderScreen("文件")
                     Destination.DASHBOARD -> PlaceholderScreen("仪表盘")
                     Destination.PORTS -> PlaceholderScreen("端口转发")
@@ -92,5 +94,15 @@ fun BareZenAppContent(model: AppModel) {
                 }
             }
         }
+    }
+
+    // 连接确认对话框：确认 → confirmConnect（内部委托 startConnect 主路径），取消 → 关闭
+    model.pendingConnect?.let { server ->
+        ConnectDialog(
+            server = server,
+            onResult = { auth ->
+                if (auth != null) model.confirmConnect(auth) else model.dismissConnect()
+            },
+        )
     }
 }

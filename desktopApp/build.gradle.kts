@@ -12,6 +12,9 @@ dependencies {
     implementation(compose.desktop.currentOs)
     implementation(libs.kotlinx.coroutinesSwing)
 
+    // 运行期静音 jediterm 的 SLF4J “No SLF4J providers” 噪声（jvmTest 已有同款 nop，见 shared/build.gradle.kts）
+    implementation(libs.slf4j.nop)
+
     implementation(libs.compose.uiToolingPreview)
 }
 

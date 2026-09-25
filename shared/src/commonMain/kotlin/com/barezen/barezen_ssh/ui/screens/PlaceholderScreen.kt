@@ -15,10 +15,3 @@ fun PlaceholderScreen(label: String) {
         Text("「$label」功能尚未启用。", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
-
-@Composable
-fun TerminalScreenPlaceholder() {
-    Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-        Text("在服务器列表选择「新建终端」以开始。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}

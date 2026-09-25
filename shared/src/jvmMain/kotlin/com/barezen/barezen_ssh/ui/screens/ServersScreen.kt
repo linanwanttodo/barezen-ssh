@@ -97,6 +97,7 @@ fun ServersScreen(
                 ServerCard(
                     server = server,
                     connection = model.connection,
+                    onConnect = { model.requestConnect(it) },
                     onNewTerminal = onNewTerminal,
                     onOpenFiles = onOpenFiles,
                     onEdit = { editing = server; dialogOpen = true },
@@ -194,6 +195,7 @@ private fun ServersHeader(model: AppModel) {
 private fun ServerCard(
     server: Server,
     connection: ConnectionState,
+    onConnect: (Server) -> Unit,
     onNewTerminal: (Server) -> Unit,
     onOpenFiles: () -> Unit,
     onEdit: () -> Unit,
@@ -290,8 +292,7 @@ private fun ServerCard(
                 )
                 Spacer(Modifier.weight(1f))
                 if (!isUp) {
-                    // 连接流程 Task 8 接入；本任务仅展示状态。
-                    TextButton(onClick = {}) { Text("连接") }
+                    TextButton(onClick = { onConnect(server) }) { Text("连接") }
                 }
             }
 
