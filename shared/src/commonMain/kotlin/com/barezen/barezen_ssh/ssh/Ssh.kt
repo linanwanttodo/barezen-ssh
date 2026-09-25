@@ -1,4 +1,4 @@
-// shared/src/commonMain/kotlin/com/barezen/barezen_ssh/ssh/Ssh.kt（本任务先建骨架，Task 6 补全实现细节）
+// shared/src/commonMain/kotlin/com/barezen/barezen_ssh/ssh/Ssh.kt
 package com.barezen.barezen_ssh.ssh
 
 import com.barezen.barezen_ssh.servers.Server
@@ -10,4 +10,25 @@ sealed interface ConnectionState {
     data class Failed(val server: Server, val message: String) : ConnectionState
 }
 
-interface SshClient // Task 6 定义方法
+sealed interface AuthMethod {
+    data class Password(val value: String) : AuthMethod
+    data class PrivateKey(val keyPath: String, val passphrase: String? = null) : AuthMethod
+}
+
+data class ConnectRequest(val host: String, val port: Int, val user: String, val auth: AuthMethod)
+
+interface ShellChannel {
+    fun write(bytes: ByteArray)
+    fun resize(cols: Int, rows: Int)
+    fun close()
+}
+
+interface SshSession {
+    fun pingMs(): Long
+    fun startShell(onData: (ByteArray) -> Unit, onClosed: (Throwable?) -> Unit): ShellChannel
+    fun close()
+}
+
+interface SshClient {
+    suspend fun connect(request: ConnectRequest): SshSession
+}

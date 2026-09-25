@@ -3,12 +3,15 @@ package com.barezen.barezen_ssh.app
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.barezen.barezen_ssh.ssh.AuthMethod
+import com.barezen.barezen_ssh.ssh.ConnectRequest
 import com.barezen.barezen_ssh.ssh.ConnectionState
 import com.barezen.barezen_ssh.ssh.SshClient
 import com.barezen.barezen_ssh.servers.Server
 import com.barezen.barezen_ssh.servers.ServerRepository
 import com.barezen.barezen_ssh.servers.filterServers
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlin.jvm.JvmName
 
 class AppModel(
@@ -35,6 +38,19 @@ class AppModel(
     fun saveServer(server: Server) { repo.upsert(server); refreshServers() }
     fun removeServer(id: String) { repo.delete(id); refreshServers() }
 
+    fun startConnect(server: Server, auth: AuthMethod) {
+        connection = ConnectionState.Connecting(server)
+        scope.launch {
+            try {
+                val session = ssh.connect(ConnectRequest(server.host, server.port, server.user, auth))
+                connection = ConnectionState.Connected(server, session.pingMs())
+            } catch (e: Exception) {
+                connection = ConnectionState.Failed(server, e.message ?: e.toString())
+            }
+        }
+    }
+    fun disconnect() { connection = ConnectionState.Disconnected }
+
     companion object {
         fun forUiTest(): AppModel = AppModel(
             repo = object : ServerRepository {
@@ -42,7 +58,7 @@ class AppModel(
                 override fun upsert(server: Server) {}
                 override fun delete(id: String) {}
             },
-            ssh = object : SshClient {},
+            ssh = object : SshClient { override suspend fun connect(request: ConnectRequest) = error("unused") },
             scope = CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined),
         )
     }

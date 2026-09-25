@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runComposeUiTest
 import com.barezen.barezen_ssh.servers.InMemoryServerRepository
 import com.barezen.barezen_ssh.servers.Server
+import com.barezen.barezen_ssh.ssh.ConnectRequest
 import com.barezen.barezen_ssh.ssh.SshClient
 import com.barezen.barezen_ssh.ui.theme.BareZenTheme
 import com.barezen.barezen_ssh.ui.screens.ServersScreen
@@ -24,7 +25,7 @@ class ServersScreenTest {
                 Server("2", "db-01", "10.0.0.12", 22, "root", listOf("生产", "数据库")),
             )
         ),
-        ssh = object : SshClient {},
+        ssh = object : SshClient { override suspend fun connect(request: ConnectRequest) = error("unused") },
         scope = CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined),
     )
 
