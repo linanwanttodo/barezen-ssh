@@ -26,7 +26,11 @@ class AppModel(
 
     companion object {
         fun forUiTest(): AppModel = AppModel(
-            repo = object : ServerRepository { override fun list(): List<Server> = emptyList() },
+            repo = object : ServerRepository {
+                override fun list(): List<Server> = emptyList()
+                override fun upsert(server: Server) {}
+                override fun delete(id: String) {}
+            },
             ssh = object : SshClient {},
             scope = CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined),
         )

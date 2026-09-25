@@ -1,4 +1,27 @@
-// shared/src/commonMain/kotlin/com/barezen/barezen_ssh/servers/Server.kt（骨架，Task 4 完整化）
+// shared/src/commonMain/kotlin/com/barezen/barezen_ssh/servers/Server.kt
 package com.barezen.barezen_ssh.servers
 
-data class Server(val id: String, val name: String, val host: String, val port: Int, val user: String)
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+
+@Serializable
+data class Server(
+    val id: String,
+    val name: String,
+    val host: String,
+    val port: Int = 22,
+    val user: String,
+    val tags: List<String> = emptyList(),
+    val auth: StoredAuth = StoredAuth.Password,
+)
+
+@Serializable
+sealed interface StoredAuth {
+    @Serializable
+    @SerialName("password")
+    data object Password : StoredAuth
+
+    @Serializable
+    @SerialName("key")
+    data class Key(val keyPath: String) : StoredAuth
+}
