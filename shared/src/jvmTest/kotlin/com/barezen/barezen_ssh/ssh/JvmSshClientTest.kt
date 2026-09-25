@@ -20,6 +20,7 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.test.AfterTest
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFails
 import kotlin.test.assertTrue
 
@@ -64,6 +65,19 @@ class JvmSshClientTest {
         assertFails {
             JvmSshClient(tofu()).connect(ConnectRequest("127.0.0.1", port, "test", AuthMethod.Password("wrong")))
         }
+    }
+
+    /** 应用级单例验证器（与 AppModel.desktop 的单例形态一致）：同一运行期重连不得追加重复条目。 */
+    @Test fun reconnectDoesNotDuplicateKnownHostLine(): Unit = kotlinx.coroutines.runBlocking {
+        val port = startSshd()
+        val kh = File.createTempFile("kh_", "")
+        val client = JvmSshClient(TofuHostKeyVerifier(kh))
+        val request = ConnectRequest("127.0.0.1", port, "test", AuthMethod.Password("secret"))
+        client.connect(request).close()
+        client.connect(request).close()
+        val lines = kh.readLines().filter { it.isNotBlank() }
+        assertEquals(1, lines.size, "known_hosts 出现重复条目: $lines")
+        assertTrue(lines.single().contains("127.0.0.1"))
     }
 
     @Test fun shellReceivesDataAndSendsInput() = kotlinx.coroutines.runBlocking {
