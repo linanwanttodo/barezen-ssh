@@ -33,6 +33,7 @@ import androidx.compose.material.icons.outlined.Settings
 import com.barezen.barezen_ssh.app.AppModel
 import com.barezen.barezen_ssh.app.Destination
 import com.barezen.barezen_ssh.ui.screens.PlaceholderScreen
+import com.barezen.barezen_ssh.ui.screens.ServersScreen
 import androidx.compose.ui.graphics.vector.ImageVector
 
 private fun railIcon(to: Destination, selected: Boolean): ImageVector = when (to) {
@@ -78,7 +79,11 @@ fun BareZenAppContent(model: AppModel) {
                 color = MaterialTheme.colorScheme.surface,
             ) {
                 when (model.current) {
-                    Destination.SERVERS -> PlaceholderScreen("服务器")
+                    Destination.SERVERS -> ServersScreen(
+                        model = model,
+                        onNewTerminal = { model.navigate(Destination.TERMINAL) },
+                        onOpenFiles = { model.navigate(Destination.FILES) },
+                    )
                     Destination.TERMINAL -> com.barezen.barezen_ssh.ui.screens.TerminalScreenPlaceholder()
                     Destination.FILES -> PlaceholderScreen("文件")
                     Destination.DASHBOARD -> PlaceholderScreen("仪表盘")
