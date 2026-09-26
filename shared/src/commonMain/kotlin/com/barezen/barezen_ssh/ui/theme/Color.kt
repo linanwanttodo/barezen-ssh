@@ -1,26 +1,25 @@
 // shared/src/commonMain/kotlin/com/barezen/barezen_ssh/ui/theme/Color.kt
+// 控制台石墨——token 原文见 docs/ui-redesign/index.html §1 与 styles.css :root
 package com.barezen.barezen_ssh.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// M3 dark · seed #0F766E (tonalSpot) — 数值见 docs/superpowers/specs/2026-09-24-barezen-ui-features-design.md
-val BareZenPrimary = Color(0xFF81D5CB)
-val BareZenOnPrimary = Color(0xFF003733)
-val BareZenPrimaryContainer = Color(0xFF00504A)
-val BareZenOnPrimaryContainer = Color(0xFF9DF2E7)
-val BareZenSecondaryContainer = Color(0xFF324B48)
-val BareZenOnSecondaryContainer = Color(0xFFCCE8E4)
-val BareZenTertiary = Color(0xFFAEC9E6)
-val BareZenTertiaryContainer = Color(0xFF2F4961)
-val BareZenOnTertiaryContainer = Color(0xFFCEE5FF)
-val BareZenError = Color(0xFFFFB4AB)
-val BareZenSurface = Color(0xFF101413)
-val BareZenOnSurface = Color(0xFFE0E3E1)
-val BareZenSurfaceContainerLowest = Color(0xFF0B0F0E)
-val BareZenSurfaceContainerLow = Color(0xFF191C1C)
-val BareZenSurfaceContainer = Color(0xFF1D2020)
-val BareZenSurfaceContainerHigh = Color(0xFF272B2A)
-val BareZenSurfaceContainerHighest = Color(0xFF323535)
-val BareZenOnSurfaceVariant = Color(0xFFBEC9C6)
-val BareZenOutline = Color(0xFF899391)
-val BareZenOutlineVariant = Color(0xFF3F4947)
+val BareZenBg = Color(0xFF0B0D0E)              // 背景 bg
+val BareZenSurface = Color(0xFF131516)         // 表面 surface
+val BareZenPanel = Color(0xFF1A1D1E)           // 面板 panel
+val BareZenElevated = Color(0xFF232728)        // 抬高 elevated
+val BareZenBorder = Color(0xFF2E3335)          // 边框 border
+val BareZenBorderSubtle = Color(0xFF24292B)    // border-subtle
+val BareZenTextPrimary = Color(0xFFEEF1F3)
+val BareZenTextSecondary = Color(0xFF9CA5A9)
+val BareZenTextTertiary = Color(0xFF8B9498)
+val BareZenAccent = Color(0xFF52B788)
+val BareZenOnAccent = Color(0xFF101413)
+val BareZenAccentSubtle = Color(0xFF1A2E26)
+val BareZenError = Color(0xFFE56A6A)
+val BareZenErrorBg = Color(0xFF2A1A1A)
+val BareZenWarning = Color(0xFFE5A044)
+val BareZenWarningBg = Color(0xFF2A1F12)
+val BareZenInfo = Color(0xFF5CA8D8)
+val BareZenInfoBg = Color(0xFF132536)
+val BareZenTerminalBg = Color(0xFF1E1E1E)      // 终端背景（Task 3 注入 JediTerm）
