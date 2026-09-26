@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="trae-edit-mode-dragging"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BareZen-SSH · 全新 UI 体系设计交付包</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="handoff">
+    <aside class="sidebar">
+      <h1>BareZen-SSH<span>全新 UI 体系设计交付包</span></h1>
+      <nav class="nav" aria-label="文档目录">
+        <a href="#language" class="active"><span class="ms">palette</span>设计语言</a>
+        <a href="#contrast"><span class="ms">contrast</span>对比度证据</a>
+        <a href="#architecture"><span class="ms">account_tree</span>信息架构</a>
+        <a href="#screens"><span class="ms">desktop_windows</span>每屏设计稿</a>
+        <a href="#terminal"><span class="ms">terminal</span>终端区域方案</a>
+        <a href="#components"><span class="ms">widgets</span>组件清单</a>
+        <a href="#motion"><span class="ms">motion_mode</span>动效与减弱</a>
+        <a href="#vocabulary"><span class="ms">translate</span>词表改动项</a>
+      </nav>
+    </aside>
+
+    <main class="main" style="position: relative;">
+      <!-- ── 设计语言 ───────────────────────────────────────── -->
+      <section class="section" id="language">
+        <h2 class="section-title">设计语言声明</h2>
+        <p class="section-lead">
+        本次改版以「控制台石墨」为概念：深石墨色背景降低长时间运维的视觉负荷，青绿色作为唯一功能强调色，所有层次通过 1px 实线边框与明度差异建立，不使用渐变、发光或玻璃拟态。界面保持高信息密度，但保留充足的呼吸间距。
+      </p>
+      <p class="note" style="margin-bottom:var(--space-8);">
+        如需更直观地查看应用布局与页面切换效果，可直接打开 <a href="prototype.html">交互原型</a>（全屏横向布局，含六个可切换页面）。
+      </p>
+
+        <h3>1. 色板</h3>
+        <div class="token-grid">
+          <div class="token">
+            <div class="token-swatch" style="background:#0B0D0E;color:#EEF1F3;">#0B0D0E</div>
+            <div class="token-info"><div class="token-name">背景 bg</div><div class="token-hex">#0B0D0E</div></div>
+          </div>
+          <div class="token">
+            <div class="token-swatch" style="background:#131516;color:#EEF1F3;">#131516</div>
+            <div class="token-info"><div class="token-name">表面 surface</div><div class="token-hex">#131516</div></div>
+          </div>
+          <div class="token">
+            <div class="token-swatch" style="background:#1A1D1E;color:#EEF1F3;">#1A1D1E</div>
+            <div class="token-info"><div class="token-name">面板 panel</div><div class="token-hex">#1A1D1E</div></div>
+          </div>
+          <div class="token">
+            <div class="token-swatch" style="background:#232728;color:#EEF1F3;">#232728</div>
+            <div class="token-info"><div class="token-name">抬高 elevated</div><div class="token-hex">#232728</div></div>
+          </div>
+          <div class="token">
+            <div class="token-swatch" style="background:#2E3335;color:#EEF1F3;">#2E3335</div>
+            <div class="token-info"><div class="token-name">边框 border</div><div class="token-hex">#2E3335</div></div>
+          </div>
+          <div class="token">
+            <div class="token-swatch" style="background:#52B788;color:#101413;">#52B788</div>
+            <div class="token-info"><div class="token-name">强调 accent</div><div class="token-hex">#52B788</div></div>
+          </div>
+          <div class="token">
+            <div class="token-swatch" style="background:#E56A6A;color:#101413;">#E56A6A</div>
+            <div class="token-info"><div class="token-name">错误 error</div><div class="token-hex">#E56A6A</div></div>
+          </div>
+          <div class="token">
+            <div class="token-swatch" style="background:#E5A044;color:#101413;">#E5A044</div>
+            <div class="token-info"><div class="token-name">警告 warning</div><div class="token-hex">#E5A044</div></div>
+          </div>
+          <div class="token">
+            <div class="token-swatch" style="background:#5CA8D8;color:#101413;">#5CA8D8</div>
+            <div class="token-info"><div class="token-name">信息 info</div><div class="token-hex">#5CA8D8</div></div>
+          </div>
+          <div class="token">
+            <div class="token-swatch" style="background:#1E1E1E;color:#CCCCCC;">#1E1E1E</div>
+            <div class="token-info"><div class="token-name">终端背景</div><div class="token-hex">#1E1E1E</div></div>
+          </div>
+        </div>
+
+        <h3>2. 终端 16 色调色板</h3>
+        <p class="section-lead">终端调色板独立于 UI 主题，从 JediTerm SettingsProvider 注入，全部满足在 #1E1E1E 上的 WCAG AA 正文对比度。</p>
+        <div class="token-grid">
+          <div class="token"><div class="token-swatch" style="background:#CCCCCC;color:#1E1E1E;">#CCCCCC</div><div class="token-info"><div class="token-name">前景</div><div class="token-hex">#CCCCCC</div></div></div>
+          <div class="token"><div class="token-swatch" style="background:#8A8A8A;color:#1E1E1E;">#8A8A8A</div><div class="token-info"><div class="token-name">暗淡</div><div class="token-hex">#8A8A8A</div></div></div>
+          <div class="token"><div class="token-swatch" style="background:#E45C5C;color:#1E1E1E;">#E45C5C</div><div class="token-info"><div class="token-name">红</div><div class="token-hex">#E45C5C</div></div></div>
+          <div class="token"><div class="token-swatch" style="background:#0DBC79;color:#1E1E1E;">#0DBC79</div><div class="token-info"><div class="token-name">绿</div><div class="token-hex">#0DBC79</div></div></div>
+          <div class="token"><div class="token-swatch" style="background:#E5E510;color:#1E1E1E;">#E5E510</div><div class="token-info"><div class="token-name">黄</div><div class="token-hex">#E5E510</div></div></div>
+          <div class="token"><div class="token-swatch" style="background:#4AA8FF;color:#1E1E1E;">#4AA8FF</div><div class="token-info"><div class="token-name">蓝</div><div class="token-hex">#4AA8FF</div></div></div>
+          <div class="token"><div class="token-swatch" style="background:#D670D6;color:#1E1E1E;">#D670D6</div><div class="token-info"><div class="token-name">洋红</div><div class="token-hex">#D670D6</div></div></div>
+          <div class="token"><div class="token-swatch" style="background:#33B8D9;color:#1E1E1E;">#33B8D9</div><div class="token-info"><div class="token-name">青</div><div class="token-hex">#33B8D9</div></div></div>
+        </div>
+
+        <h3>3. 字体与字号阶</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>层级</th><th>字体</th><th>字号</th><th>字重</th><th>行高</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td>标题 1</td><td>Noto Sans SC</td><td>24px</td><td>700</td><td>1.3</td><td>屏标题</td></tr>
+              <tr><td>标题 2</td><td>Noto Sans SC</td><td>18px</td><td>700</td><td>1.4</td><td>卡片标题 / 对话框标题</td></tr>
+              <tr><td>标题 3</td><td>Noto Sans SC</td><td>15px</td><td>600</td><td>1.4</td><td>服务器名称 / 会话标题</td></tr>
+              <tr><td>正文</td><td>Noto Sans SC</td><td>14px</td><td>400</td><td>1.6</td><td>表单标签、说明文字</td></tr>
+              <tr><td>辅助</td><td>Noto Sans SC</td><td>12px</td><td>400</td><td>1.5</td><td>状态、时间、标签</td></tr>
+              <tr><td>微小</td><td>Noto Sans SC</td><td>11px</td><td>500</td><td>1.4</td><td>状态栏、角标</td></tr>
+              <tr><td>等宽正文</td><td>JetBrains Mono</td><td>13px</td><td>400</td><td>1.5</td><td>终端、主机地址、命令</td></tr>
+              <tr><td>等宽小字</td><td>JetBrains Mono</td><td>11px</td><td>400</td><td>1.4</td><td>延迟、指标数值</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>4. 间距阶</h3>
+        <p>以 4px 为基数的等差阶：4 / 8 / 12 / 16 / 20 / 24 / 32 / 40 / 48 / 64。卡片内间隙以 16px 为主，屏边距以 24px 为主，信息分组之间以 24–32px 分隔。</p>
+
+        <h3>5. 圆角与描边策略</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>用途</th><th>圆角</th><th>描边</th></tr></thead>
+            <tbody>
+              <tr><td>窗口 / 顶层容器</td><td>8px</td><td>1px solid border</td></tr>
+              <tr><td>卡片 / 面板</td><td>8px</td><td>1px solid border</td></tr>
+              <tr><td>输入框 / 按钮</td><td>6px</td><td>1px solid border（描边按钮）或无边（填充按钮）</td></tr>
+              <tr><td>标签 chips / badge</td><td>999px（药丸）</td><td>1px solid border-subtle</td></tr>
+              <tr><td>终端区域</td><td>0</td><td>顶部 1px solid border</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>6. 动效原则</h3>
+        <ul>
+          <li>动效仅用于状态变化反馈，时长控制在 150–250ms。</li>
+          <li>使用透明度淡入淡出（fade）表示内容切换，不使用位移、缩放或旋转做装饰。</li>
+          <li>焦点环、选中态、加载指示器为唯一常驻动画，帧率目标 60fps。</li>
+          <li>不引入粒子、呼吸光晕、视差或背景动态纹理。</li>
+        </ul>
+      </section>
+
+      <!-- ── 对比度 ─────────────────────────────────────────── -->
+      <section class="section" id="contrast">
+        <h2 class="section-title">对比度证据（WCAG AA）</h2>
+        <p class="section-lead">以下所有正文用色组合均满足 ≥4.5:1；大字号（≥18px 或 ≥14px 加粗）用色组合满足 ≥3:1。计算基于 sRGB 相对亮度公式。</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>前景色</th><th>背景色</th><th>对比度</th><th>结果</th></tr></thead>
+            <tbody>
+              <tr><td><code>--text #EEF1F3</code></td><td><code>--bg #0B0D0E</code></td><td>17.17:1</td><td class="text-success">通过</td></tr>
+              <tr><td><code>--text-secondary #9CA5A9</code></td><td><code>--bg #0B0D0E</code></td><td>7.76:1</td><td class="text-success">通过</td></tr>
+              <tr><td><code>--text-tertiary #8B9498</code></td><td><code>--bg #0B0D0E</code></td><td>6.30:1</td><td class="text-success">通过</td></tr>
+              <tr><td><code>--accent #52B788</code></td><td><code>--bg #0B0D0E</code></td><td>7.87:1</td><td class="text-success">通过</td></tr>
+              <tr><td><code>--error #E56A6A</code></td><td><code>--bg #0B0D0E</code></td><td>6.12:1</td><td class="text-success">通过</td></tr>
+              <tr><td><code>--warning #E5A044</code></td><td><code>--bg #0B0D0E</code></td><td>8.76:1</td><td class="text-success">通过</td></tr>
+              <tr><td><code>--info #5CA8D8</code></td><td><code>--bg #0B0D0E</code></td><td>7.46:1</td><td class="text-success">通过</td></tr>
+              <tr><td><code>--text #EEF1F3</code></td><td><code>--surface #131516</code></td><td>16.15:1</td><td class="text-success">通过</td></tr>
+              <tr><td><code>--text-secondary #9CA5A9</code></td><td><code>--surface #131516</code></td><td>7.30:1</td><td class="text-success">通过</td></tr>
+              <tr><td><code>--text-tertiary #8B9498</code></td><td><code>--surface #131516</code></td><td>5.92:1</td><td class="text-success">通过</td></tr>
+              <tr><td><code>--text #EEF1F3</code></td><td><code>--panel #1A1D1E</code></td><td>14.95:1</td><td class="text-success">通过</td></tr>
+              <tr><td><code>--text-secondary #9CA5A9</code></td><td><code>--panel #1A1D1E</code></td><td>6.76:1</td><td class="text-success">通过</td></tr>
+              <tr><td><code>--text-tertiary #8B9498</code></td><td><code>--panel #1A1D1E</code></td><td>5.48:1</td><td class="text-success">通过</td></tr>
+              <tr><td><code>--accent #52B788</code></td><td><code>--panel #1A1D1E</code></td><td>6.85:1</td><td class="text-success">通过</td></tr>
+              <tr><td><code>--accent-text #101413</code></td><td><code>--accent #52B788</code></td><td>7.50:1</td><td class="text-success">通过</td></tr>
+              <tr><td><code>--terminal-fg #CCCCCC</code></td><td><code>--terminal-bg #1E1E1E</code></td><td>10.38:1</td><td class="text-success">通过</td></tr>
+              <tr><td><code>--term-red #E45C5C</code></td><td><code>--terminal-bg #1E1E1E</code></td><td>4.75:1</td><td class="text-success">通过</td></tr>
+              <tr><td><code>--term-green #0DBC79</code></td><td><code>--terminal-bg #1E1E1E</code></td><td>6.74:1</td><td class="text-success">通过</td></tr>
+              <tr><td><code>--term-blue #4AA8FF</code></td><td><code>--terminal-bg #1E1E1E</code></td><td>6.62:1</td><td class="text-success">通过</td></tr>
+              <tr><td><code>--term-dim #8A8A8A</code></td><td><code>--terminal-bg #1E1E1E</code></td><td>4.83:1</td><td class="text-success">通过</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">
+          禁用组合：旧版 <code>--text-tertiary #6E797D</code> 在 panel 上只有 3.79:1，不满足正文标准，因此已调亮至 #8B9498。
+        </p>
+      </section>
+
+      <!-- ── 信息架构 ───────────────────────────────────────── -->
+      <section class="section" id="architecture">
+        <h2 class="section-title">信息架构</h2>
+        <p class="section-lead">
+          保留左侧主导航，但将导航结构改为「工作区 + 工具」两层：主导航承载一级目的地；各屏内部通过标签、分栏、工具栏承载次级能力。所有功能均可在导航或屏内直达，分期项在对应位置标注为占位。
+        </p>
+
+        <h3>主导航</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>导航项</th><th>对应能力域</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td>仪表盘</td><td>域 6 · 仪表盘（M4 占位）</td><td>位于主导航首位，可选择服务器查看实时指标图表</td></tr>
+              <tr><td>服务器</td><td>域 1 · 服务器管理</td><td>列表、搜索、标签、新建/编辑/连接、直达终端/文件/仪表盘</td></tr>
+              <tr><td>终端</td><td>域 3 · 终端</td><td>终端主工作区；含标签条、分屏、状态栏、AI 侧栏入口</td></tr>
+              <tr><td>文件</td><td>域 4 · 文件传输（M2 占位）</td><td>双栏 SFTP 浏览器与传输队列</td></tr>
+              <tr><td>端口转发</td><td>域 5 · 端口转发（M3 占位）</td><td>规则配置与活动转发列表；导航角标显示活动数</td></tr>
+              <tr><td>设置</td><td>域 7 · 设置</td><td>分类设置页</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>七能力域可达位置</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>能力</th><th>所在位置</th><th>状态</th></tr></thead>
+            <tbody>
+              <tr><td>服务器列表 / 搜索 / 标签</td><td>服务器屏</td><td>已实现</td></tr>
+              <tr><td>新建 / 编辑服务器</td><td>服务器屏内对话框</td><td>已实现</td></tr>
+              <tr><td>删除服务器（确认）</td><td>服务器卡片 ⋯ 菜单</td><td>占位（M2）</td></tr>
+              <tr><td>未连接汇总横幅 / 全部重连</td><td>服务器屏顶部</td><td>横幅已实现 / 全部重连占位</td></tr>
+              <tr><td>连接对话框 / 认证</td><td>全局浮层，由服务器/终端触发</td><td>已实现</td></tr>
+              <tr><td>连接状态机 / 延迟 / 重连</td><td>连接流程 + 终端状态栏</td><td>已实现 / 自动重连占位</td></tr>
+              <tr><td>显式断开连接</td><td>终端屏工具栏 / 状态栏右键</td><td>开放项</td></tr>
+              <tr><td>JediTerm 终端渲染</td><td>终端屏主区域</td><td>已实现</td></tr>
+              <tr><td>多标签 / 分屏</td><td>终端屏标签条 / 分屏按钮</td><td>占位（M4）</td></tr>
+              <tr><td>AI 运维侧栏</td><td>终端屏右侧 280px 分栏</td><td>占位（M5）</td></tr>
+              <tr><td>SFTP 双栏浏览 / 传输队列</td><td>文件屏</td><td>占位（M2）</td></tr>
+              <tr><td>端口转发规则 / 活动列表 / badge</td><td>端口转发屏</td><td>占位（M3）</td></tr>
+              <tr><td>仪表盘指标 / 图表</td><td>仪表盘屏 + 服务器卡片微瓦片</td><td>占位（M4）</td></tr>
+              <tr><td>设置 8 分类</td><td>设置屏左侧分类 + 右侧内容</td><td>占位</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ── 每屏设计稿 ─────────────────────────────────────── -->
+      <section class="section" id="screens">
+        <h2 class="section-title">每屏设计稿</h2>
+        <p class="section-lead">
+          以下静态稿以 HTML/CSS 呈现最小宽 1180px 的下限布局。每屏均包含正常态、空态、加载态或错误态示意。未标注「占位」的即当前已实现功能。
+        </p>
+
+        <h3>服务器屏 · 正常态</h3>
+        <p class="mock-label">1180px 下限布局：左侧 200px 导航 + 右侧内容区（卡片网格最小 280px）</p>
+        <div class="mock-window" style="max-width:1180px;">
+          <div class="mock-titlebar">
+            <div class="mock-dot" style="background:#E56A6A;"></div>
+            <div class="mock-dot" style="background:#E5A044;"></div>
+            <div class="mock-dot" style="background:#52B788;"></div>
+            <span class="mock-title">BareZen-SSH</span>
+          </div>
+          <div class="mock-body">
+            <nav class="mock-nav" aria-label="主导导航"><div class="mock-nav-item"><span class="ms">monitoring</span>仪表盘</div><div class="mock-nav-item active"><span class="ms">dns</span>服务器</div><div class="mock-nav-item"><span class="ms">terminal</span>终端</div><div class="mock-nav-item"><span class="ms">folder</span>文件</div><div class="mock-nav-spacer"></div><div class="mock-nav-item"><span class="ms">sync_alt</span>端口转发<span class="badge">2</span></div><div class="mock-nav-item"><span class="ms">settings</span>设置</div>
+<button class="collapse-btn" aria-label="收起侧边栏"><span class="ms">chevron_left</span><span class="collapse-label">收起</span></button></nav>
+            <main class="mock-main">
+              <div class="mock-content">
+                <div class="banner">
+                  <span class="ms">sync</span>
+                  <span>3 台服务器未连接</span>
+                  <span style="flex:1;"></span>
+                  <button class="btn ghost sm">全部重连</button>
+                </div>
+                <div class="flex gap-4 mb-4" style="flex-wrap:wrap;">
+                  <input class="input" style="width:360px;" placeholder="按名称、地址或标签搜索服务器" aria-label="搜索服务器">
+                  <div class="flex gap-2 items-center" style="flex-wrap:wrap;">
+                    <span class="chip active">生产</span>
+                    <span class="chip">测试</span>
+                    <span class="chip">海外</span>
+                  </div>
+                </div>
+                <div class="server-grid">
+                  <article class="server-card">
+                    <div class="server-card-header">
+                      <span class="ms" style="font-size:20px;color:var(--text-secondary);">dns</span>
+                      <div class="server-card-meta">
+                        <div class="server-card-title">生产网关</div>
+                        <div class="server-card-sub">gateway.example.com:22</div>
+                      </div>
+                      <button class="icon-btn" aria-label="编辑服务器"><span class="ms">edit</span></button>
+                    </div>
+                    <div class="server-card-stats">
+                      <div class="stat"><div class="stat-label">负载</div><div class="stat-value">0.42</div></div>
+                      <div class="stat"><div class="stat-label">内存</div><div class="stat-value">62%</div></div>
+                      <div class="stat"><div class="stat-label">运行</div><div class="stat-value">45d</div></div>
+                    </div>
+                    <div class="status-row"><span class="status-dot on"></span><span>已连接 · 24 ms</span></div>
+                    <div class="actions">
+                      <button class="btn primary"><span class="ms">terminal</span>新建终端</button>
+                      <button class="btn secondary"><span class="ms">folder</span>打开文件传输</button>
+                    </div>
+                  </article>
+                  <article class="server-card">
+                    <div class="server-card-header">
+                      <span class="ms" style="font-size:20px;color:var(--text-secondary);">dns</span>
+                      <div class="server-card-meta">
+                        <div class="server-card-title">测试节点 A</div>
+                        <div class="server-card-sub">10.0.0.12:22</div>
+                        <div style="margin-top:4px;"><span class="chip">测试</span></div>
+                      </div>
+                      <button class="icon-btn" aria-label="编辑服务器"><span class="ms">edit</span></button>
+                    </div>
+                    <div style="background:var(--panel);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:12px;font-size:12px;color:var(--text-secondary);">
+                      <span class="ms" style="font-size:16px;vertical-align:middle;margin-right:6px;">insights</span>
+                      连接后查看负载、内存和运行时间。
+                    </div>
+                    <div class="status-row"><span class="status-dot"></span><span>未连接</span></div>
+                    <div class="actions">
+                      <button class="btn primary"><span class="ms">terminal</span>新建终端</button>
+                      <button class="btn secondary"><span class="ms">folder</span>打开文件传输</button>
+                    </div>
+                  </article>
+                  <article class="server-card">
+                    <div class="server-card-header">
+                      <span class="ms" style="font-size:20px;color:var(--text-secondary);">dns</span>
+                      <div class="server-card-meta">
+                        <div class="server-card-title">海外缓存</div>
+                        <div class="server-card-sub">cache.sg.example.com:22</div>
+                        <div style="margin-top:4px;"><span class="chip">海外</span></div>
+                      </div>
+                      <button class="icon-btn" aria-label="编辑服务器"><span class="ms">edit</span></button>
+                    </div>
+                    <div style="background:var(--panel);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:12px;font-size:12px;color:var(--text-secondary);">
+                      <span class="ms" style="font-size:16px;vertical-align:middle;margin-right:6px;">insights</span>
+                      连接后查看负载、内存和运行时间。
+                    </div>
+                    <div class="status-row"><span class="status-dot"></span><span>未连接</span></div>
+                    <div class="actions">
+                      <button class="btn primary"><span class="ms">terminal</span>新建终端</button>
+                      <button class="btn secondary"><span class="ms">folder</span>打开文件传输</button>
+                    </div>
+                  </article>
+                </div>
+              </div>
+            </main>
+          </div>
+          <button class="btn primary" style="position:absolute;right:24px;bottom:24px;box-shadow:none;"><span class="ms">add</span>新建服务器</button>
+        </div>
+
+        <h3>服务器屏 · 空态</h3>
+        <div class="mock-window" style="max-width:900px;">
+          <div class="mock-titlebar"><div class="mock-dot" style="background:#E56A6A;"></div><div class="mock-dot" style="background:#E5A044;"></div><div class="mock-dot" style="background:#52B788;"></div><span class="mock-title">BareZen-SSH</span></div>
+          <div class="mock-body">
+            <nav class="mock-nav"><div class="mock-nav-item"><span class="ms">monitoring</span>仪表盘</div><div class="mock-nav-item active"><span class="ms">dns</span>服务器</div><div class="mock-nav-item"><span class="ms">terminal</span>终端</div><div class="mock-nav-item"><span class="ms">folder</span>文件</div><div class="mock-nav-spacer"></div><div class="mock-nav-item"><span class="ms">sync_alt</span>端口转发</div><div class="mock-nav-item"><span class="ms">settings</span>设置</div></nav>
+            <main class="mock-main"><div class="mock-content"><div class="empty-state"><span class="ms">dns</span><div>暂无服务器<br><span class="text-tertiary">添加第一台服务器以开始使用</span></div><button class="btn primary"><span class="ms">add</span>新建服务器</button></div></div></main>
+          </div>
+        </div>
+
+        <h3>服务器屏 · 加载态</h3>
+        <div class="mock-window" style="max-width:900px;">
+          <div class="mock-titlebar"><div class="mock-dot" style="background:#E56A6A;"></div><div class="mock-dot" style="background:#E5A044;"></div><div class="mock-dot" style="background:#52B788;"></div><span class="mock-title">BareZen-SSH</span></div>
+          <div class="mock-body">
+            <nav class="mock-nav"><div class="mock-nav-item"><span class="ms">monitoring</span>仪表盘</div><div class="mock-nav-item active"><span class="ms">dns</span>服务器</div><div class="mock-nav-item"><span class="ms">terminal</span>终端</div><div class="mock-nav-item"><span class="ms">folder</span>文件</div><div class="mock-nav-spacer"></div><div class="mock-nav-item"><span class="ms">sync_alt</span>端口转发</div><div class="mock-nav-item"><span class="ms">settings</span>设置</div></nav>
+            <main class="mock-main"><div class="mock-content"><div class="banner"><span class="ms">sync</span><span>刷新服务器列表…</span></div><div class="server-grid"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div></div></main>
+          </div>
+        </div>
+
+        <h3>服务器屏 · 连接失败提示</h3>
+        <div class="mock-window" style="max-width:900px;">
+          <div class="mock-titlebar"><div class="mock-dot" style="background:#E56A6A;"></div><div class="mock-dot" style="background:#E5A044;"></div><div class="mock-dot" style="background:#52B788;"></div><span class="mock-title">BareZen-SSH</span></div>
+          <div class="mock-body">
+            <nav class="mock-nav"><div class="mock-nav-item"><span class="ms">monitoring</span>仪表盘</div><div class="mock-nav-item active"><span class="ms">dns</span>服务器</div><div class="mock-nav-item"><span class="ms">terminal</span>终端</div><div class="mock-nav-item"><span class="ms">folder</span>文件</div><div class="mock-nav-spacer"></div><div class="mock-nav-item"><span class="ms">sync_alt</span>端口转发</div><div class="mock-nav-item"><span class="ms">settings</span>设置</div></nav>
+            <main class="mock-main"><div class="mock-content"><div class="banner error"><span class="ms">error</span><span>连接失败：Auth fail</span><span style="flex:1;"></span><button class="btn ghost sm text-error">重试</button></div><p class="text-secondary">卡片状态同步显示「连接失败」并保留重试入口。</p></div></main>
+          </div>
+        </div>
+
+        <h3>连接流程 · 认证对话框</h3>
+        <div class="mock-window" style="max-width:900px;position:relative;">
+          <div class="mock-titlebar"><div class="mock-dot" style="background:#E56A6A;"></div><div class="mock-dot" style="background:#E5A044;"></div><div class="mock-dot" style="background:#52B788;"></div><span class="mock-title">BareZen-SSH</span></div>
+          <div class="mock-body">
+            <nav class="mock-nav"><div class="mock-nav-item"><span class="ms">monitoring</span>仪表盘</div><div class="mock-nav-item active"><span class="ms">dns</span>服务器</div><div class="mock-nav-item"><span class="ms">terminal</span>终端</div><div class="mock-nav-item"><span class="ms">folder</span>文件</div><div class="mock-nav-spacer"></div><div class="mock-nav-item"><span class="ms">sync_alt</span>端口转发</div><div class="mock-nav-item"><span class="ms">settings</span>设置</div></nav>
+            <main class="mock-main"><div class="mock-content" style="position:relative;min-height:420px;"><div class="mock-overlay">
+              <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="conn-title">
+                <h3 id="conn-title">连接到 生产网关</h3>
+                <div class="dialog-row"><input class="input" value="ubuntu" disabled="" style="flex:1;"><label class="text-tertiary">用户名</label></div>
+                <div class="dialog-row"><input class="input" value="22" disabled="" style="flex:1;"><label class="text-tertiary">端口</label></div>
+                <div class="dialog-row" style="background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-md);padding:4px;">
+                  <button class="btn primary sm" style="flex:1;">密码</button>
+                  <button class="btn ghost sm" style="flex:1;">私钥</button>
+                </div>
+                <input class="input" type="password" placeholder="密码" aria-label="密码">
+                <p class="text-tertiary" style="font-size:12px;margin:0;">密码仅保存在内存中，不会写入本地文件。</p>
+                <div class="dialog-actions">
+                  <button class="btn ghost">取消</button>
+                  <button class="btn primary">连接</button>
+                </div>
+              </div>
+            </div></div></main>
+          </div>
+        </div>
+
+        <h3>连接流程 · 连接中</h3>
+        <div class="mock-window" style="max-width:900px;position:relative;">
+          <div class="mock-titlebar"><div class="mock-dot" style="background:#E56A6A;"></div><div class="mock-dot" style="background:#E5A044;"></div><div class="mock-dot" style="background:#52B788;"></div><span class="mock-title">BareZen-SSH</span></div>
+          <div class="mock-body">
+            <nav class="mock-nav"><div class="mock-nav-item"><span class="ms">monitoring</span>仪表盘</div><div class="mock-nav-item"><span class="ms">dns</span>服务器</div><div class="mock-nav-item active"><span class="ms">terminal</span>终端</div><div class="mock-nav-item"><span class="ms">folder</span>文件</div><div class="mock-nav-spacer"></div><div class="mock-nav-item"><span class="ms">sync_alt</span>端口转发</div><div class="mock-nav-item"><span class="ms">settings</span>设置</div></nav>
+            <main class="mock-main"><div class="mock-content" style="position:relative;min-height:420px;"><div class="mock-overlay">
+              <div class="dialog" style="text-align:center;">
+                <span class="ms" style="font-size:32px;color:var(--accent);">progress_activity</span>
+                <p style="color:var(--text-secondary);">正在连接 生产网关…</p>
+                <button class="btn ghost">取消</button>
+              </div>
+            </div></div></main>
+          </div>
+        </div>
+
+        <h3>连接流程 · 失败重试</h3>
+        <div class="mock-window" style="max-width:900px;position:relative;">
+          <div class="mock-titlebar"><div class="mock-dot" style="background:#E56A6A;"></div><div class="mock-dot" style="background:#E5A044;"></div><div class="mock-dot" style="background:#52B788;"></div><span class="mock-title">BareZen-SSH</span></div>
+          <div class="mock-body">
+            <nav class="mock-nav"><div class="mock-nav-item"><span class="ms">monitoring</span>仪表盘</div><div class="mock-nav-item"><span class="ms">dns</span>服务器</div><div class="mock-nav-item active"><span class="ms">terminal</span>终端</div><div class="mock-nav-item"><span class="ms">folder</span>文件</div><div class="mock-nav-spacer"></div><div class="mock-nav-item"><span class="ms">sync_alt</span>端口转发</div><div class="mock-nav-item"><span class="ms">settings</span>设置</div></nav>
+            <main class="mock-main"><div class="mock-content" style="position:relative;min-height:420px;"><div class="mock-overlay">
+              <div class="dialog">
+                <div style="background:var(--error-bg);border:1px solid var(--error);border-radius:var(--radius-md);padding:var(--space-4);color:var(--error);font-size:13px;">
+                  连接失败：java.net.UnknownHostException: gateway.example.com
+                </div>
+                <div class="dialog-actions">
+                  <button class="btn ghost">取消</button>
+                  <button class="btn primary">重试</button>
+                </div>
+              </div>
+            </div></div></main>
+          </div>
+        </div>
+
+        <h3>终端屏 · 正常态</h3>
+        <p class="mock-label">1180px 布局：标签条 + JediTerm 区域 + 状态栏；右侧 AI 侧栏收起时为占位按钮</p>
+        <div class="mock-window" style="max-width:1180px;">
+          <div class="mock-titlebar"><div class="mock-dot" style="background:#E56A6A;"></div><div class="mock-dot" style="background:#E5A044;"></div><div class="mock-dot" style="background:#52B788;"></div><span class="mock-title">BareZen-SSH</span></div>
+          <div class="mock-body">
+            <nav class="mock-nav"><div class="mock-nav-item"><span class="ms">monitoring</span>仪表盘</div><div class="mock-nav-item"><span class="ms">dns</span>服务器</div><div class="mock-nav-item active"><span class="ms">terminal</span>终端</div><div class="mock-nav-item"><span class="ms">folder</span>文件</div><div class="mock-nav-spacer"></div><div class="mock-nav-item"><span class="ms">sync_alt</span>端口转发</div><div class="mock-nav-item"><span class="ms">settings</span>设置</div></nav>
+            <main class="mock-main">
+              <div class="mock-terminal-wrap">
+                <div class="tab-strip">
+                  <button class="tab active"><span class="ms">terminal</span>生产网关 <span class="ms close">close</span></button>
+                  <button class="tab"><span class="ms">add</span></button>
+                  <button class="tab" style="margin-left:auto;"><span class="ms">smart_toy</span>助手</button>
+                </div>
+                <div class="terminal-body">
+                  <div class="terminal-area" role="log" aria-live="polite" aria-label="终端输出">
+<span class="prompt">ubuntu@gateway:~$</span> <span class="cmd">uptime</span>
+<span class="out"> 14:32:10 up 45 days,  3:12,  1 user,  load average: 0.42, 0.38, 0.31</span>
+<span class="prompt">ubuntu@gateway:~$</span> <span class="cmd">df -h</span>
+<span class="out">Filesystem      Size  Used Avail Use%</span>
+<span class="out">/dev/sda1        98G   42G   52G  45%</span>
+<span class="prompt">ubuntu@gateway:~$</span> <span class="cmd">_</span>
+                  </div>
+                </div>
+                <div class="status-bar">
+                  <span class="status-dot on"></span>
+                  <span>已连接</span>
+                  <span class="sep">|</span>
+                  <span>生产网关</span>
+                  <span class="sep">|</span>
+                  <span>SSH 往返 24 ms</span>
+                  <span class="metric">
+                    <span>负载 0.42</span>
+                    <span>内存 62%</span>
+                    <span>运行 45d</span>
+                  </span>
+                </div>
+              </div>
+            </main>
+          </div>
+        </div>
+
+        <h3>终端屏 · 空态</h3>
+        <div class="mock-window" style="max-width:900px;">
+          <div class="mock-titlebar"><div class="mock-dot" style="background:#E56A6A;"></div><div class="mock-dot" style="background:#E5A044;"></div><div class="mock-dot" style="background:#52B788;"></div><span class="mock-title">BareZen-SSH</span></div>
+          <div class="mock-body">
+            <nav class="mock-nav"><div class="mock-nav-item"><span class="ms">monitoring</span>仪表盘</div><div class="mock-nav-item"><span class="ms">dns</span>服务器</div><div class="mock-nav-item active"><span class="ms">terminal</span>终端</div><div class="mock-nav-item"><span class="ms">folder</span>文件</div><div class="mock-nav-spacer"></div><div class="mock-nav-item"><span class="ms">sync_alt</span>端口转发</div><div class="mock-nav-item"><span class="ms">settings</span>设置</div></nav>
+            <main class="mock-main">
+              <div class="mock-terminal-wrap">
+                <div class="tab-strip"><button class="tab" style="margin-left:auto;"><span class="ms">smart_toy</span>助手</button></div>
+                <div class="terminal-body">
+                  <div class="empty-state" style="flex:1;background:var(--surface);"><span class="ms">terminal</span><div>在服务器列表选择「新建终端」以开始。</div></div>
+                </div>
+                <div class="status-bar"><span class="status-dot"></span><span>未连接</span></div>
+              </div>
+            </main>
+          </div>
+        </div>
+
+        <h3>终端屏 · 含 AI 侧栏（M5 占位）</h3>
+        <p class="mock-label">推荐 1440px 布局：右侧 280px 常驻分栏，不悬浮</p>
+        <div class="mock-window" style="max-width:1180px;">
+          <div class="mock-titlebar"><div class="mock-dot" style="background:#E56A6A;"></div><div class="mock-dot" style="background:#E5A044;"></div><div class="mock-dot" style="background:#52B788;"></div><span class="mock-title">BareZen-SSH</span></div>
+          <div class="mock-body">
+            <nav class="mock-nav"><div class="mock-nav-item"><span class="ms">monitoring</span>仪表盘</div><div class="mock-nav-item"><span class="ms">dns</span>服务器</div><div class="mock-nav-item active"><span class="ms">terminal</span>终端</div><div class="mock-nav-item"><span class="ms">folder</span>文件</div><div class="mock-nav-spacer"></div><div class="mock-nav-item"><span class="ms">sync_alt</span>端口转发</div><div class="mock-nav-item"><span class="ms">settings</span>设置</div></nav>
+            <main class="mock-main">
+              <div class="mock-terminal-wrap">
+                <div class="tab-strip"><button class="tab active"><span class="ms">terminal</span>生产网关 <span class="ms close">close</span></button><button class="tab"><span class="ms">add</span></button><button class="tab" style="margin-left:auto;"><span class="ms">smart_toy</span>助手</button></div>
+                <div class="terminal-body">
+                  <div class="terminal-area"><span class="prompt">ubuntu@gateway:~$</span> <span class="cmd">_</span></div>
+                  <aside class="ai-sidebar" aria-label="AI 运维侧栏">
+                    <div class="ai-header"><span>AI 运维助手</span><button class="icon-btn"><span class="ms">expand_less</span></button></div>
+                    <div class="ai-body">
+                      <div class="ai-placeholder"><span class="ms" style="font-size:32px;">smart_toy</span><div>选择模型后开始对话<br>批准的命令将注入当前终端</div></div>
+                    </div>
+                  </aside>
+                </div>
+                <div class="status-bar"><span class="status-dot on"></span><span>已连接</span><span class="sep">|</span><span>生产网关</span><span class="sep">|</span><span>SSH 往返 24 ms</span><span class="metric"><span>负载 0.42</span><span>内存 62%</span><span>运行 45d</span></span></div>
+              </div>
+            </main>
+          </div>
+        </div>
+
+
+        <h3>侧边栏 · 折叠态</h3>
+        <div class="mock-window" style="max-width:600px;">
+          <div class="mock-titlebar"><div class="mock-dot" style="background:#E56A6A;"></div><div class="mock-dot" style="background:#E5A044;"></div><div class="mock-dot" style="background:#52B788;"></div><span class="mock-title">BareZen-SSH</span></div>
+          <div class="mock-body">
+            <nav class="mock-nav collapsed" aria-label="主导导航">
+              <div class="mock-nav-item active"><span class="ms">monitoring</span><span>仪表盘</span></div>
+              <div class="mock-nav-item"><span class="ms">dns</span><span>服务器</span></div>
+              <div class="mock-nav-item"><span class="ms">terminal</span><span>终端</span></div>
+              <div class="mock-nav-item"><span class="ms">folder</span><span>文件</span></div>
+              <div class="mock-nav-spacer"></div>
+              <div class="mock-nav-item"><span class="ms">sync_alt</span><span>端口转发</span></div>
+              <div class="mock-nav-item"><span class="ms">settings</span><span>设置</span></div>
+              <button class="collapse-btn" aria-label="展开侧边栏"><span class="ms">chevron_right</span></button>
+            </nav>
+            <main class="mock-main"><div class="mock-content"><div class="empty-state"><span class="ms">monitoring</span><div>折叠后仅显示图标<br><span class="text-tertiary">再次点击展开按钮恢复文字标签</span></div></div></div></main>
+          </div>
+        </div>
+
+        <h3>文件屏 · 占位布局（M2）</h3>
+        <div class="mock-window" style="max-width:1180px;">
+          <div class="mock-titlebar"><div class="mock-dot" style="background:#E56A6A;"></div><div class="mock-dot" style="background:#E5A044;"></div><div class="mock-dot" style="background:#52B788;"></div><span class="mock-title">BareZen-SSH</span></div>
+          <div class="mock-body">
+            <nav class="mock-nav"><div class="mock-nav-item"><span class="ms">monitoring</span>仪表盘</div><div class="mock-nav-item"><span class="ms">dns</span>服务器</div><div class="mock-nav-item"><span class="ms">terminal</span>终端</div><div class="mock-nav-item active"><span class="ms">folder</span>文件</div><div class="mock-nav-spacer"></div><div class="mock-nav-item"><span class="ms">sync_alt</span>端口转发</div><div class="mock-nav-item"><span class="ms">settings</span>设置</div></nav>
+            <main class="mock-main">
+              <div class="mock-header"><h2>文件传输</h2><div class="actions" style="flex:none;"><button class="btn secondary">上传</button><button class="btn secondary">下载</button></div></div>
+              <div class="mock-content" style="display:flex;gap:16px;">
+                <div class="file-pane"><div class="file-pane-header">本地</div><div class="file-row head"><span>名称</span><span>大小</span><span>修改时间</span></div><div class="file-row"><span>project</span><span>—</span><span>2026-09-20</span></div><div class="file-row"><span>notes.txt</span><span>12 KB</span><span>2026-09-25</span></div></div>
+                <div class="file-pane"><div class="file-pane-header">远程</div><div class="file-row head"><span>名称</span><span>大小</span><span>修改时间</span></div><div class="file-row"><span>/home/ubuntu</span><span>—</span><span>—</span></div></div>
+              </div>
+              <div style="height:48px;border-top:1px solid var(--border);background:var(--panel);display:flex;align-items:center;padding:0 16px;gap:12px;font-size:12px;color:var(--text-secondary);"><span class="ms">upload</span><span>传输队列占位（M2）</span></div>
+            </main>
+          </div>
+        </div>
+
+        <h3>仪表盘屏 · 占位布局（M4）</h3>
+        <p class="mock-label">仪表盘位于主导航首位，用户进入后可在顶部选择要查看的服务器。</p>
+        <div class="mock-window" style="max-width:1180px;">
+          <div class="mock-titlebar"><div class="mock-dot" style="background:#E56A6A;"></div><div class="mock-dot" style="background:#E5A044;"></div><div class="mock-dot" style="background:#52B788;"></div><span class="mock-title">BareZen-SSH</span></div>
+          <div class="mock-body">
+            <nav class="mock-nav"><div class="mock-nav-item active"><span class="ms">monitoring</span>仪表盘</div><div class="mock-nav-item"><span class="ms">dns</span>服务器</div><div class="mock-nav-item"><span class="ms">terminal</span>终端</div><div class="mock-nav-item"><span class="ms">folder</span>文件</div><div class="mock-nav-spacer"></div><div class="mock-nav-item"><span class="ms">sync_alt</span>端口转发</div><div class="mock-nav-item"><span class="ms">settings</span>设置</div></nav>
+            <main class="mock-main">
+              <div class="mock-header"><h2>仪表盘</h2><select class="input" aria-label="选择服务器" style="width:180px;"><option>生产网关</option><option>测试节点 A</option><option>海外缓存</option></select><span style="flex:1;"></span><span class="text-tertiary">数据来源：SSH 主机指标</span><button class="btn secondary">刷新</button></div>
+              <div class="mock-content">
+                <div class="metric-grid">
+                  <div class="metric-card"><div class="label">CPU</div><div class="value">12<span class="unit">%</span></div></div>
+                  <div class="metric-card"><div class="label">内存</div><div class="value">62<span class="unit">%</span></div></div>
+                  <div class="metric-card"><div class="label">平均负载</div><div class="value">0.42</div></div>
+                  <div class="metric-card"><div class="label">运行时间</div><div class="value">45<span class="unit">d</span></div></div>
+                </div>
+                <div class="chart-card"><div class="chart-title">CPU / 内存 / 网络折线图占位（M4）</div></div>
+                <div class="chart-card"><div class="chart-title">磁盘用量条形图占位（M4）</div></div>
+              </div>
+            </main>
+          </div>
+        </div>
+
+        <h3>端口转发屏 · 占位布局（M3）</h3>
+        <div class="mock-window" style="max-width:1180px;">
+          <div class="mock-titlebar"><div class="mock-dot" style="background:#E56A6A;"></div><div class="mock-dot" style="background:#E5A044;"></div><div class="mock-dot" style="background:#52B788;"></div><span class="mock-title">BareZen-SSH</span></div>
+          <div class="mock-body">
+            <nav class="mock-nav"><div class="mock-nav-item"><span class="ms">monitoring</span>仪表盘</div><div class="mock-nav-item"><span class="ms">dns</span>服务器</div><div class="mock-nav-item"><span class="ms">terminal</span>终端</div><div class="mock-nav-item"><span class="ms">folder</span>文件</div><div class="mock-nav-spacer"></div><div class="mock-nav-item active"><span class="ms">sync_alt</span>端口转发<span class="badge">2</span></div><div class="mock-nav-item"><span class="ms">settings</span>设置</div></nav>
+            <main class="mock-main">
+              <div class="mock-header"><h2>端口转发</h2><button class="btn primary">新建转发</button></div>
+              <div class="mock-content">
+                <div class="banner"><span class="ms">info</span><span>活动转发：2 条；需要先建立 SSH 连接才能启动新的转发。</span></div>
+                <div class="chart-card"><div class="chart-title">转发表单占位（M3）</div><p class="text-secondary">类型：本地监听 / 服务器监听 / SOCKS5</p></div>
+                <div class="chart-card"><div class="chart-title">已保存的配置 / 活动转发列表占位（M3）</div></div>
+              </div>
+            </main>
+          </div>
+        </div>
+
+        <h3>设置屏 · 分类布局</h3>
+        <div class="mock-window" style="max-width:1180px;">
+          <div class="mock-titlebar"><div class="mock-dot" style="background:#E56A6A;"></div><div class="mock-dot" style="background:#E5A044;"></div><div class="mock-dot" style="background:#52B788;"></div><span class="mock-title">BareZen-SSH</span></div>
+          <div class="mock-body">
+            <nav class="mock-nav"><div class="mock-nav-item"><span class="ms">monitoring</span>仪表盘</div><div class="mock-nav-item"><span class="ms">dns</span>服务器</div><div class="mock-nav-item"><span class="ms">terminal</span>终端</div><div class="mock-nav-item"><span class="ms">folder</span>文件</div><div class="mock-nav-spacer"></div><div class="mock-nav-item"><span class="ms">sync_alt</span>端口转发</div><div class="mock-nav-item active"><span class="ms">settings</span>设置</div></nav>
+            <main class="mock-main">
+              <div class="settings-layout">
+                <aside class="settings-nav">
+                  <div class="mock-nav-item active">外观</div>
+                  <div class="mock-nav-item">终端</div>
+                  <div class="mock-nav-item">连接</div>
+                  <div class="mock-nav-item">智能助手</div>
+                  <div class="mock-nav-item">凭据</div>
+                  <div class="mock-nav-item">存储</div>
+                  <div class="mock-nav-item">更新</div>
+                  <div class="mock-nav-item">关于</div>
+                </aside>
+                <div class="settings-content">
+                  <h3 style="margin-top:0;">外观</h3>
+                  <div class="setting-row">
+                    <div><div class="setting-label">主题</div><div class="setting-desc">跟随系统 / 浅色 / 深色</div></div>
+                    <button class="btn secondary sm">跟随系统</button>
+                  </div>
+                  <div class="setting-row">
+                    <div><div class="setting-label">界面字体</div><div class="setting-desc">Noto Sans SC</div></div>
+                    <button class="btn secondary sm">选择</button>
+                  </div>
+                  <div class="setting-row">
+                    <div><div class="setting-label">界面缩放</div></div>
+                    <button class="btn secondary sm">100%</button>
+                  </div>
+                  <div class="setting-row">
+                    <div><div class="setting-label">显示语言</div></div>
+                    <button class="btn secondary sm">简体中文</button>
+                  </div>
+                </div>
+              </div>
+            </main>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 终端区域处理方案 ───────────────────────────────── -->
+      <section class="section" id="terminal">
+        <h2 class="section-title">终端区域处理方案</h2>
+        <p class="section-lead">
+          终端是产品价值核心，其渲染区由 JediTerm（Swing 组件）内嵌 Compose 提供。设计需保证终端区域始终是一块完整的、可独立滚动的矩形，不可被其他 UI 元素遮挡或分割为异形。
+        </p>
+        <ul>
+          <li><strong>位置与尺寸：</strong>终端区域位于标签条下方、状态栏上方，占满内容区剩余宽高。最小宽度 1180px 时，除去 200px 导航与 24px 边距，终端区宽度不小于 932px；高度随窗口变化。</li>
+          <li><strong>分屏：</strong>当用户执行「向右拆分」或「向下拆分」时，将终端区按格子划分为多个等大的 JediTerm 子区域，每个子区域独立滚动、独立会话，边框使用 1px solid border 分隔。</li>
+          <li><strong>标签：</strong>标签条位于终端区正上方，高度 36px；活动标签以背景色 elevated 区分，不使用下划线或渐变。</li>
+          <li><strong>AI 侧栏：</strong>侧栏位于终端区右侧，宽度 280px（推荐 1440px 布局），与终端区同高；通过标签条上的「助手」按钮收起/展开，非悬浮、不覆盖终端内容。</li>
+          <li><strong>状态栏：</strong>固定高度 28px，位于终端区底部；承载连接状态、服务器名、SSH 往返延迟，以及占位中的负载/内存/运行时间指标。</li>
+          <li><strong>字体：</strong>终端内统一使用 JetBrains Mono 13px；UI 主题不派生终端调色板，终端 16 色由 JediTerm SettingsProvider 独立注入。</li>
+        </ul>
+      </section>
+
+      <!-- ── 组件清单 ───────────────────────────────────────── -->
+      <section class="section" id="components">
+        <h2 class="section-title">组件清单</h2>
+        <p class="section-lead">所有组件均基于设计 token 构建，形态统一；禁止悬浮效果，所有交互态通过焦点环、选中背景、文字冗余表达。</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>组件</th><th>形态</th><th>使用规则</th></tr></thead>
+            <tbody>
+              <tr><td>主导航项</td><td>200px 左侧竖栏，图标 + 文字，选中时 panel 背景</td><td>一级目的地；端口转发带 badge 角标；可折叠为仅图标模式</td></tr>
+              <tr><td>横幅 Banner</td><td>panel 背景 + 1px border，左侧图标，右侧操作按钮</td><td>全局提示、未连接汇总、错误反馈</td></tr>
+              <tr><td>搜索框</td><td>bg 背景，1px border，圆角 6px，左侧搜索图标</td><td>服务器搜索、文件搜索</td></tr>
+              <tr><td>标签 Chip</td><td>药丸形，1px border-subtle，选中时 accent 描边 + accent-subtle 背景</td><td>标签过滤、状态标记</td></tr>
+              <tr><td>按钮</td><td>6px 圆角；primary 为 accent 填充；secondary 为 panel + border；ghost 为透明文字</td><td>主操作 / 次级操作 / 文字操作</td></tr>
+              <tr><td>图标按钮</td><td>32px 正方形，透明背景，6px 圆角，仅图标</td><td>编辑、关闭、更多菜单触发</td></tr>
+              <tr><td>服务器卡片</td><td>8px 圆角 panel 背景 + border；含头部、统计瓦片、状态行、操作行</td><td>服务器列表主要载体</td></tr>
+              <tr><td>统计瓦片</td><td>panel + border-subtle，6px 圆角，10px 标签 + 14px mono 数值</td><td>卡片微瓦片、仪表盘指标</td></tr>
+              <tr><td>状态点</td><td>8px 圆形；on=accent，off=text-tertiary，error=error；必须配文字</td><td>连接状态；色彩不作唯一指示</td></tr>
+              <tr><td>输入框</td><td>bg 背景，1px border，6px 圆角；禁用态降低透明度</td><td>表单、对话框</td></tr>
+              <tr><td>单选 / 分段控件</td><td>panel 背景容器，选中项为 primary 填充</td><td>认证方式、设置开关组</td></tr>
+              <tr><td>对话框</td><td>surface 背景，1px border，8px 圆角，顶部标题，底部操作按钮右对齐</td><td>新建/编辑服务器、连接确认</td></tr>
+              <tr><td>标签页 Tab</td><td>36px 高，6px 圆角；活动项 elevated 背景</td><td>终端会话标签</td></tr>
+              <tr><td>状态栏</td><td>28px 高，panel 背景，顶部 1px border，11px 文字</td><td>终端底部、全局状态</td></tr>
+              <tr><td>AI 侧栏</td><td>280px 宽，surface 背景，左侧 1px border，含标题、对话流、输入区占位</td><td>终端右侧常驻分栏</td></tr>
+              <tr><td>Badge</td><td>药丸形，accent-subtle 背景 + accent 文字；error/warn 变体</td><td>未连接数、活动转发数、自动批准标记</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ── 动效与减弱 ─────────────────────────────────────── -->
+      <section class="section" id="motion">
+        <h2 class="section-title">动效原则与 reduced-motion 声明</h2>
+        <ul>
+          <li><strong>通用时长：</strong>150–250ms；使用 opacity 淡入淡出表达内容切换。</li>
+          <li><strong>加载态：</strong>使用旋转进度图标（progress_activity），时长不限，但仅出现于连接/加载期间。</li>
+          <li><strong>焦点环：</strong>2px solid accent，无过渡，确保键盘用户即时可见。</li>
+          <li><strong>禁止项：</strong>悬浮放大、悬浮变色、阴影扩散、背景渐变动画、粒子、呼吸光晕。</li>
+        </ul>
+        <h3>prefers-reduced-motion 处理</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>常规动效</th><th>减弱模式下</th></tr></thead>
+            <tbody>
+              <tr><td>内容切换淡入淡出</td><td>直接切换，不透明度变化设为 0ms</td></tr>
+              <tr><td>加载旋转图标</td><td>保留静态进度图标或文字「加载中…」</td></tr>
+              <tr><td>焦点环出现</td><td>保持可见，无过渡</td></tr>
+              <tr><td>错误横幅出现</td><td>直接显示，无滑入/淡入</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ── 词表改动项 ─────────────────────────────────────── -->
+      <section class="section" id="vocabulary">
+        <h2 class="section-title">词表改动项</h2>
+        <p class="section-lead">本次设计保持附录 A 绝大多数词条语义不变，仅对两处做措辞微调以匹配新信息架构。</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>原词</th><th>新词</th><th>改动原因</th></tr></thead>
+            <tbody>
+              <tr><td>打开文件管理</td><td>打开文件传输</td><td>与导航项「文件」保持一致，明确功能为 SFTP 双向传输</td></tr>
+              <tr><td>「&lt;域名&gt;」功能尚未启用。</td><td>（移除）</td><td>占位屏文案废弃，分期功能改用骨架屏或空态占位</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">其余词条均沿用：服务器、终端、文件、仪表盘、端口转发、设置、新建服务器、编辑服务器、保存、取消、名称、地址、端口、用户名、标签、连接、新建终端、密码、私钥、私钥路径、私钥口令、选择私钥文件、连接中、已连接、未连接、重试、连接失败、SSH 往返、加载中等。</p>
+      </section>
+
+      <footer class="text-tertiary" style="font-size:12px;padding-bottom:var(--space-16);">
+        设计交付包 · BareZen-SSH · 2026-09-26
+      </footer>
+    </main>
+  </div>
+
+</body></html>
