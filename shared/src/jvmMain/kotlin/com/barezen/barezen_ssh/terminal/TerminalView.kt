@@ -11,7 +11,7 @@ import com.barezen.barezen_ssh.ssh.ShellChannel
 import com.barezen.barezen_ssh.ssh.SshSession
 import com.barezen.barezen_ssh.ssh.TerminalTtyConnector
 import com.jediterm.terminal.TextStyle
-import com.jediterm.terminal.TerminalColor
+import com.jediterm.terminal.emulator.ColorPalette
 import com.jediterm.terminal.ui.JediTermWidget
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider
 import java.awt.Color
@@ -29,7 +29,7 @@ fun TerminalView(session: SshSession, modifier: Modifier = Modifier) {
     val widget = remember(session) {
         JediTermWidget(BareZenTerminalSettings()).apply {
             //SwingPanel 的 background 参数已弃用（compose 1.12.1）：按其指引在组件创建时手动设置，同为 #1E1E1E
-            background = Color(0x1E, 0x1E, 0x1E)
+            background = Color(TerminalPalette.Background)
         }
     }
     DisposableEffect(session) {
@@ -71,7 +71,10 @@ private class BareZenTerminalSettings : DefaultSettingsProvider() {
     // 官方弃用提示（改用 getDefaultForeground/Background）在 3.73 不成立，见类注释；此处仅为抑制 OVERRIDE_DEPRECATION
     @Suppress("OVERRIDE_DEPRECATION")
     override fun getDefaultStyle(): TextStyle =
-        TextStyle(TerminalColor.rgb(0xCC, 0xCC, 0xCC), TerminalColor.rgb(0x1E, 0x1E, 0x1E))
+        TextStyle(TerminalPalette.rgb(TerminalPalette.Foreground), TerminalPalette.rgb(TerminalPalette.Background))
+
+    // JediTerm 3.73 无 getANSIColor（简报预置回退）：16 色的实际签核接口是 UserSettingsProvider.getTerminalColorPalette()
+    override fun getTerminalColorPalette(): ColorPalette = BareZenColorPalette(super.getTerminalColorPalette())
 
     override fun getTerminalFont(): Font = Font(TERMINAL_FONT_FAMILY, Font.PLAIN, TERMINAL_FONT_SIZE)
 
