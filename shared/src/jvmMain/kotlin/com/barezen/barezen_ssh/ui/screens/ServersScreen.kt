@@ -3,6 +3,7 @@
 
 package com.barezen.barezen_ssh.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,13 +30,13 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Error
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -63,6 +64,8 @@ import com.barezen.barezen_ssh.app.AppModel
 import com.barezen.barezen_ssh.servers.Server
 import com.barezen.barezen_ssh.servers.StoredAuth
 import com.barezen.barezen_ssh.ssh.ConnectionState
+import com.barezen.barezen_ssh.ui.theme.BareZenMonoBody
+import com.barezen.barezen_ssh.ui.theme.BareZenMonoSmall
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -82,6 +85,7 @@ fun ServersScreen(
     var dialogOpen by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Server?>(null) }
 
+    val servers = model.servers
     Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 300.dp),
@@ -90,30 +94,46 @@ fun ServersScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                ServersHeader(model)
+            // 设计包 §服务器屏·空态 mock 无头部（横幅/搜索/标签）→ 真空态只留空态块；
+            // 筛选空态（有服务器但匹配为空）保留头部，否则搜索框消失无法恢复。
+            if (servers.isNotEmpty()) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    ServersHeader(model, onRetry = { model.requestConnect(it) })
+                }
             }
-            items(model.visibleServers, key = { it.id }) { server ->
-                ServerCard(
-                    server = server,
-                    connection = model.connection,
-                    onConnect = { model.requestConnect(it) },
-                    onNewTerminal = onNewTerminal,
-                    onOpenFiles = onOpenFiles,
-                    onEdit = { editing = server; dialogOpen = true },
-                )
+            if (model.visibleServers.isEmpty()) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    ServersEmptyState(
+                        filtered = servers.isNotEmpty(),
+                        onCreate = { editing = null; dialogOpen = true },
+                    )
+                }
+            } else {
+                items(model.visibleServers, key = { it.id }) { server ->
+                    ServerCard(
+                        server = server,
+                        connection = model.connection,
+                        onConnect = { model.requestConnect(it) },
+                        onNewTerminal = onNewTerminal,
+                        onOpenFiles = onOpenFiles,
+                        onEdit = { editing = server; dialogOpen = true },
+                    )
+                }
             }
         }
 
-        FloatingActionButton(
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-            onClick = { editing = null; dialogOpen = true },
-        ) {
-            Icon(Icons.Filled.Add, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text("新建服务器", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        // 右下角新建（设计稿 right/bottom 24px，primary = accent/onAccent）；
+        // 真空态按编排裁决不渲染（空态块自带「新建服务器」按钮，避免同文案双节点）。
+        if (servers.isNotEmpty()) {
+            Button(
+                onClick = { editing = null; dialogOpen = true },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
+                shape = RoundedCornerShape(6.dp),
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text("新建服务器")
+            }
         }
     }
 
@@ -129,35 +149,75 @@ fun ServersScreen(
     }
 }
 
-/** 屏头部：未连接横幅、搜索框（testTag server-search）、标签 chips。 */
+/**
+ * 屏头部：横幅二态（连接失败错误横幅 / 未连接计数横幅 + 禁用「全部重连」占位）、
+ * 搜索框（testTag server-search）、标签 chips。
+ */
 @Composable
-private fun ServersHeader(model: AppModel) {
+private fun ServersHeader(model: AppModel, onRetry: (Server) -> Unit) {
+    val failedState = model.connection as? ConnectionState.Failed
     val connectedId = (model.connection as? ConnectionState.Connected)?.server?.id
     val unconnectedCount = model.servers.count { it.id != connectedId }
     val allTags = remember(model.servers) { model.servers.flatMap { it.tags }.distinct() }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            shape = RoundedCornerShape(12.dp),
-        ) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+        if (failedState != null) {
+            // 错误横幅（设计包「服务器屏 · 连接失败提示」）：errorContainer 底 + error 图标 + 弹性间隔 + 重试
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.errorContainer,
+                shape = RoundedCornerShape(6.dp),
             ) {
-                Icon(
-                    Icons.Outlined.Sync,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "$unconnectedCount 台服务器未连接",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                )
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Outlined.Error,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "连接失败：${failedState.message}",
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        fontSize = 13.sp,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = { onRetry(failedState.server) }) { Text("重试") }
+                }
+            }
+        } else {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                shape = RoundedCornerShape(6.dp),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Outlined.Sync,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "$unconnectedCount 台服务器未连接",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    // 占位 M2：真源接入前禁用（不造数——无重连能力就不给可点入口）
+                    Button(
+                        onClick = {},
+                        enabled = false,
+                        modifier = Modifier.testTag("reconnect-all"),
+                    ) { Text("全部重连") }
+                }
             }
         }
 
@@ -190,7 +250,42 @@ private fun ServersHeader(model: AppModel) {
     }
 }
 
-/** 服务器卡片：头部（dns 图标/名称/地址/标签徽章/编辑）、未连接提示体、状态行、操作行。 */
+/**
+ * 空态 / 筛选空态（跨全宽 item，居中列）：
+ * - 真空态（`filtered = false`）＝设计包 §服务器屏·空态：Dns 图标 + 「暂无服务器」+
+ *   「添加第一台服务器以开始使用」+ 自带「新建服务器」按钮（右下角按钮此刻不渲染，见编排裁决）。
+ * - 筛选空态（`filtered = true`）：设计包未覆盖此分支，沿用空态骨架换文案、不带按钮
+ *   （右下角按钮在场，同文案会双节点；筛选恢复靠头部搜索框）。
+ */
+@Composable
+private fun ServersEmptyState(filtered: Boolean, onCreate: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().padding(vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(
+            Icons.Outlined.Dns,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(32.dp),
+        )
+        Text(
+            if (filtered) "没有匹配的服务器" else "暂无服务器",
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Text(
+            if (filtered) "换个关键词或标签再试试" else "添加第一台服务器以开始使用",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (!filtered) {
+            Button(onClick = onCreate) { Text("新建服务器") }
+        }
+    }
+}
+
+/** 服务器卡片：头部（dns 图标/名称/地址/标签徽章/编辑）、统计瓦片或未连接提示体、状态行、操作行。 */
 @Composable
 private fun ServerCard(
     server: Server,
@@ -201,13 +296,16 @@ private fun ServerCard(
     onEdit: () -> Unit,
 ) {
     val connectedConn = connection as? ConnectionState.Connected
+    val failedConn = connection as? ConnectionState.Failed
     val isUp = connectedConn != null && connectedConn.server.id == server.id
+    val isFailedHere = failedConn != null && failedConn.server.id == server.id
     val statusText = if (isUp) "已连接 · ${connectedConn.latencyMs} ms" else "未连接"
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
         Column(
             Modifier.fillMaxWidth().padding(16.dp),
@@ -222,10 +320,10 @@ private fun ServerCard(
                 )
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(server.name, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    Text(server.name, style = MaterialTheme.typography.titleSmall)
                     Text(
                         "${server.host}:${server.port}",
-                        fontSize = 12.sp,
+                        style = BareZenMonoBody,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     if (server.tags.isNotEmpty()) {
@@ -247,7 +345,14 @@ private fun ServerCard(
                 }
             }
 
-            if (!isUp) {
+            if (isUp) {
+                // 统计瓦片行（M4 占位，不造数）：三格 1fr，值一律「—」
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatTile("负载", Modifier.weight(1f))
+                    StatTile("内存", Modifier.weight(1f))
+                    StatTile("运行", Modifier.weight(1f))
+                }
+            } else {
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.55f),
                     shape = RoundedCornerShape(12.dp),
@@ -279,16 +384,21 @@ private fun ServerCard(
                     Modifier
                         .size(8.dp)
                         .background(
-                            if (isUp) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            when {
+                                isUp -> MaterialTheme.colorScheme.primary
+                                isFailedHere -> MaterialTheme.colorScheme.error
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                             CircleShape,
                         )
                 )
                 Spacer(Modifier.width(8.dp))
+                // 状态行三分支：已连接 / 连接失败（该卡）/ 未连接——颜色之外必有文字冗余
                 Text(
-                    statusText,
+                    if (isFailedHere) "连接失败" else statusText,
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isFailedHere) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.weight(1f))
                 if (!isUp) {
@@ -305,9 +415,31 @@ private fun ServerCard(
                 OutlinedButton(onClick = onOpenFiles, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Outlined.Folder, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("打开文件管理")
+                    Text("打开文件传输")
                 }
             }
+        }
+    }
+}
+
+/**
+ * 统计瓦片（设计包组件表：6px 圆角 + border-subtle 描边）。
+ * 卡片底已是 panel，故瓦片走 background 底形成层次；值为「—」＝ M4 占位（不造数）。
+ */
+@Composable
+private fun StatTile(label: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.background,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        shape = RoundedCornerShape(6.dp),
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("—", style = BareZenMonoSmall)
         }
     }
 }
@@ -350,7 +482,8 @@ private fun ServerEditDialog(
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            shape = RoundedCornerShape(16.dp),
+            // 设计包组件表「对话框 8px 圆角」；原实现 16dp（简报笔误记作 12→8，按实际代码改）
+            shape = RoundedCornerShape(8.dp),
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
         ) {
             Column(
