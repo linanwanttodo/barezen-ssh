@@ -122,6 +122,12 @@ fun ConnectDialog(server: Server, onResult: (AuthMethod?) -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                // 安全说明（设计包认证对话框）：口令同为内存态，密码/私钥两种模式皆属实
+                Text(
+                    "密码仅保存在内存中，不会写入本地文件。",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         },
         confirmButton = {

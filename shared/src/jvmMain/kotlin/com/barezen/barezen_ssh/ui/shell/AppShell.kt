@@ -105,4 +105,7 @@ fun BareZenAppContent(model: AppModel) {
             },
         )
     }
+
+    // 连接中/失败覆盖层：与 ConnectDialog 同为壳级挂载（Task 8 重写壳时原样迁移这两行）
+    ConnectFlowOverlays(model)
 }

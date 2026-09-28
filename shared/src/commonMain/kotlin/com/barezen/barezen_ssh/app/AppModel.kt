@@ -12,7 +12,9 @@ import com.barezen.barezen_ssh.servers.Server
 import com.barezen.barezen_ssh.servers.ServerRepository
 import com.barezen.barezen_ssh.servers.filterServers
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.jvm.JvmName
 
 class AppModel(
@@ -55,12 +57,15 @@ class AppModel(
         startConnect(server, auth)
     }
 
+    /** 进行中的连接协程；取消连接用（设计包连接中对话框「取消」）。 */
+    private var connectJob: Job? = null
+
     fun startConnect(server: Server, auth: AuthMethod) {
         // 防重入：建连进行中忽略新请求——并发协程会互相丢弃会话（孤儿 SSH 连接+keep-alive 线程），
         // 且 shellSession/connection 两次赋值可能被末写者覆盖成不一致
         if (connection is ConnectionState.Connecting) return
         connection = ConnectionState.Connecting(server)
-        scope.launch {
+        connectJob = scope.launch {
             try {
                 // 重连收口：旧会话先关再弃（否则连接/keep-alive 线程累积）
                 shellSession?.close()
@@ -69,10 +74,21 @@ class AppModel(
                 shellSession = session
                 connection = ConnectionState.Connected(server, session.pingMs())
                 current = Destination.TERMINAL
+            } catch (e: CancellationException) {
+                throw e                       // 取消不落失败态：由 cancelConnect 置 Disconnected
             } catch (e: Exception) {
                 connection = ConnectionState.Failed(server, e.message ?: e.toString())
+            } finally {
+                connectJob = null
             }
         }
+    }
+
+    /** 取消进行中的连接：掐协程并回落 Disconnected（旧会话已在协程里收口，无孤儿）。 */
+    fun cancelConnect() {
+        connectJob?.cancel()
+        connectJob = null
+        connection = ConnectionState.Disconnected
     }
 
     fun disconnect() {
