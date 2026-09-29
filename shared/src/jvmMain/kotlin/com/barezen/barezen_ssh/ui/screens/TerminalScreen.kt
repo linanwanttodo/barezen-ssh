@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,8 +15,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -34,15 +38,17 @@ import com.barezen.barezen_ssh.ssh.ConnectionState
 import com.barezen.barezen_ssh.ssh.ShellChannel
 import com.barezen.barezen_ssh.ssh.SshSession
 import com.barezen.barezen_ssh.terminal.TerminalView
+import com.barezen.barezen_ssh.ui.theme.BareZenMonoSmall
 
 /**
- * 终端屏（Task 8）：标签条（40dp 单 chip「终端」）+ 状态机内容区 + 状态栏（30dp/11sp）。
+ * 终端屏：标签条（36dp，已连接渲染会话标签，`+`/「助手」为禁用占位）+
+ * 状态机内容区 + 状态栏（28dp/11sp，已连接带 `—` 指标位）。
  * 未连接 CTA / 连接中 spin / 失败 msgbox+重试 / 已连接 TerminalView。
  */
 @Composable
 fun TerminalScreen(model: AppModel) {
     Column(Modifier.fillMaxSize()) {
-        TerminalTabStrip()
+        TerminalTabStrip(model.connection)
         Box(Modifier.fillMaxWidth().weight(1f)) {
             when (val st = model.connection) {
                 is ConnectionState.Disconnected -> Cta("在服务器列表选择「新建终端」以开始。")
@@ -55,27 +61,51 @@ fun TerminalScreen(model: AppModel) {
     }
 }
 
-/** 标签条：scHigh 底、40dp 高，单 chip「终端」active，primary 下边线 2dp（多标签 M4）。 */
+/**
+ * 标签条（设计包 §终端方案与组件表：36dp 高、panel 底、活动标签 elevated 6dp 圆角、无下划线）。
+ * 已连接渲染会话标签（close 不渲染——显式断开是开放项）；
+ * `+`（多标签 M4）与「助手」（AI 侧栏 M5）渲染为禁用占位——能力未实现，不给可点入口。
+ */
 @Composable
-private fun TerminalTabStrip() {
+private fun TerminalTabStrip(connection: ConnectionState) {
+    val colors = MaterialTheme.colorScheme
     Row(
-        Modifier.fillMaxWidth().height(40.dp).background(MaterialTheme.colorScheme.surfaceContainerHigh),
-        verticalAlignment = Alignment.Bottom,
+        Modifier.fillMaxWidth().height(36.dp).background(colors.surfaceContainer).padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(
-            Modifier.fillMaxHeight(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Text(
-                    "终端",
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+        if (connection is ConnectionState.Connected) {
+            Surface(color = colors.surfaceContainerHigh, shape = RoundedCornerShape(6.dp)) {
+                Row(
+                    Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Outlined.Terminal,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = colors.onSurfaceVariant,
+                    )
+                    Text(
+                        connection.server.name,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = colors.onSurface,
+                    )
+                }
             }
-            Box(Modifier.fillMaxWidth().height(2.dp).background(MaterialTheme.colorScheme.primary))
+        }
+        Spacer(Modifier.weight(1f))
+        // 右侧组：M4 多标签占位 + M5 AI 助手占位（禁用）
+        IconButton(
+            onClick = {},
+            enabled = false,
+            modifier = Modifier.size(32.dp),
+        ) {
+            Icon(Icons.Filled.Add, contentDescription = "多标签（M4 占位）")
+        }
+        TextButton(onClick = {}, enabled = false) {
+            Text("助手", fontSize = 12.sp, fontWeight = FontWeight.Medium)
         }
     }
 }
@@ -84,7 +114,7 @@ private fun TerminalTabStrip() {
 @Composable
 private fun Cta(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -99,7 +129,7 @@ private fun ConnectingPane(state: ConnectionState.Connecting) {
             CircularProgressIndicator(Modifier.size(32.dp))
             Text(
                 "正在连接 ${state.server.name}…",
-                fontSize = 13.sp,
+                fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -116,12 +146,12 @@ private fun FailedPane(state: ConnectionState.Failed, onRetry: () -> Unit) {
         ) {
             Surface(
                 color = MaterialTheme.colorScheme.errorContainer,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(8.dp),
             ) {
                 Text(
                     "连接失败：${state.message}",
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    fontSize = 13.sp,
+                    fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onErrorContainer,
                 )
             }
@@ -150,7 +180,12 @@ private fun ConnectedPane(model: AppModel, state: ConnectionState.Connected) {
     TerminalView(guarded, Modifier.fillMaxSize())
 }
 
-/** 状态栏：scHigh 底、30dp 高、11sp；点色 Disconnected 灰 / Connecting·Connected primary / Failed error。 */
+/**
+ * 状态栏（组件表：28dp 高、panel 底、顶部 1dp 分隔线、11sp 文字）。
+ * 已连接：`[圆点][状态词] | [服务器名] | [SSH 往返 X ms] …… [负载 —][内存 —][运行 —]`——
+ * 指标位值一律 `—`（M4 占位，**不造数**；latency 是会话实测值，非造数）。
+ * 其余状态只渲染圆点+状态词（照设计空态，不带指标位）。
+ */
 @Composable
 private fun ConnectionStatusBar(connection: ConnectionState) {
     val colors = MaterialTheme.colorScheme
@@ -160,33 +195,48 @@ private fun ConnectionStatusBar(connection: ConnectionState) {
         is ConnectionState.Connected -> "已连接" to colors.primary
         is ConnectionState.Failed -> "连接失败" to colors.error
     }
-    Column(Modifier.fillMaxWidth().background(colors.surfaceContainerHigh)) {
+    Column(Modifier.fillMaxWidth().background(colors.surfaceContainer)) {
         HorizontalDivider(thickness = 1.dp, color = colors.outlineVariant)
         Row(
-            Modifier.fillMaxWidth().height(30.dp).padding(horizontal = 12.dp),
+            Modifier.fillMaxWidth().height(28.dp).padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.size(7.dp).background(dotColor, CircleShape))
             Spacer(Modifier.width(8.dp))
             Text(label, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = dotColor)
             if (connection is ConnectionState.Connected) {
-                Spacer(Modifier.width(8.dp))
+                StatusSeparator()
                 Text(
                     connection.server.name,
                     fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Medium,
                     color = colors.onSurface,
                 )
-                Spacer(Modifier.weight(1f))
+                StatusSeparator()
                 Text(
                     "SSH 往返 ${connection.latencyMs} ms",
-                    fontSize = 11.sp,
+                    style = BareZenMonoSmall,
                     fontWeight = FontWeight.Medium,
                     color = colors.onSurfaceVariant,
                 )
+                Spacer(Modifier.weight(1f))
+                // 指标位：M4 占位，值固定 `—`——未接入主机指标前绝不渲染数字（不造数红线）
+                Text("负载 —", style = BareZenMonoSmall, color = colors.onSurfaceVariant)
+                Spacer(Modifier.width(16.dp))
+                Text("内存 —", style = BareZenMonoSmall, color = colors.onSurfaceVariant)
+                Spacer(Modifier.width(16.dp))
+                Text("运行 —", style = BareZenMonoSmall, color = colors.onSurfaceVariant)
             }
         }
     }
+}
+
+/** 状态栏分段竖线：1×12dp、border 色（照设计 `.status-bar .sep`）。 */
+@Composable
+private fun StatusSeparator() {
+    Spacer(Modifier.width(8.dp))
+    Box(Modifier.width(1.dp).height(12.dp).background(MaterialTheme.colorScheme.outlineVariant))
+    Spacer(Modifier.width(8.dp))
 }
 
 /**
