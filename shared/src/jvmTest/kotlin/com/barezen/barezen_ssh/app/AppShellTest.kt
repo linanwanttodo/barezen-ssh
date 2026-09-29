@@ -21,6 +21,6 @@ class AppShellTest {
         onNodeWithText("在服务器列表选择「新建终端」以开始。").assertIsDisplayed()
         onNodeWithText("设置").performClick()
         onNodeWithText("设置").assertExists()
-        onNodeWithText("「设置」功能尚未启用。").assertIsDisplayed()
+        onNodeWithText("外观").assertIsDisplayed()
     }
 }

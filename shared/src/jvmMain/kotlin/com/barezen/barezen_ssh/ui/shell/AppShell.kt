@@ -33,8 +33,11 @@ import androidx.compose.material.icons.outlined.Settings
 import com.barezen.barezen_ssh.app.AppModel
 import com.barezen.barezen_ssh.app.Destination
 import com.barezen.barezen_ssh.ui.screens.ConnectDialog
-import com.barezen.barezen_ssh.ui.screens.PlaceholderScreen
+import com.barezen.barezen_ssh.ui.screens.DashboardScreen
+import com.barezen.barezen_ssh.ui.screens.FilesScreen
+import com.barezen.barezen_ssh.ui.screens.PortsScreen
 import com.barezen.barezen_ssh.ui.screens.ServersScreen
+import com.barezen.barezen_ssh.ui.screens.SettingsScreen
 import com.barezen.barezen_ssh.ui.screens.TerminalScreen
 import androidx.compose.ui.graphics.vector.ImageVector
 
@@ -87,10 +90,10 @@ fun BareZenAppContent(model: AppModel) {
                         onOpenFiles = { model.navigate(Destination.FILES) },
                     )
                     Destination.TERMINAL -> TerminalScreen(model)
-                    Destination.FILES -> PlaceholderScreen("文件")
-                    Destination.DASHBOARD -> PlaceholderScreen("仪表盘")
-                    Destination.PORTS -> PlaceholderScreen("端口转发")
-                    Destination.SETTINGS -> PlaceholderScreen("设置")
+                    Destination.FILES -> FilesScreen()
+                    Destination.DASHBOARD -> DashboardScreen()
+                    Destination.PORTS -> PortsScreen()
+                    Destination.SETTINGS -> SettingsScreen()
                 }
             }
         }
