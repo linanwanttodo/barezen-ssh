@@ -86,7 +86,7 @@ fun BareZenAppContent(model: AppModel) {
                 Destination.TERMINAL -> TerminalScreen(model)
                 Destination.FILES -> FilesScreen()
                 Destination.PORTS -> PortsScreen()
-                Destination.SETTINGS -> SettingsScreen()
+                Destination.SETTINGS -> SettingsScreen(model)
             }
         }
     }

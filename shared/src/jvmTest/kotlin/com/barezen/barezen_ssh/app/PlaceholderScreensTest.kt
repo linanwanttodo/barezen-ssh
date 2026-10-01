@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
+import com.barezen.barezen_ssh.app.AppModel
 import com.barezen.barezen_ssh.ui.screens.DashboardScreen
 import com.barezen.barezen_ssh.ui.screens.FilesScreen
 import com.barezen.barezen_ssh.ui.screens.PortsScreen
@@ -58,17 +59,13 @@ class PlaceholderScreensTest {
 
     @OptIn(ExperimentalTestApi::class)
     @Test fun settingsEightCategoriesSwitchClientSide() = runComposeUiTest {
-        setContent { BareZenTheme { SettingsScreen() } }
+        setContent { BareZenTheme { SettingsScreen(AppModel.forUiTest()) } }
         listOf("外观", "终端", "连接", "智能助手", "凭据", "存储", "更新", "关于")
             .forEach { onNodeWithText(it).assertIsDisplayed() }
-        // 默认分类：外观 4 行且全部禁用
-        onNodeWithText("主题").assertIsDisplayed()
-        onNodeWithText("跟随系统").assertIsNotEnabled()
-        onNodeWithText("界面字体").assertIsDisplayed()
-        onNodeWithText("显示语言").assertIsDisplayed()
-        onNodeWithText("简体中文").assertIsNotEnabled()
-        // 切分类（客户端状态）
+        // 默认分类：外观（本任务为过渡空壳，真实 4 行由 Task 7 落地）
+        onNodeWithText("外观").assertIsDisplayed()
+        // 切分类（客户端状态）：存储已不再是占位页，而是过渡空壳（旧占位文案不再出现）
         onNodeWithText("存储").performClick()
-        onNodeWithText("「存储」设置页占位。").assertIsDisplayed()
+        onNodeWithText("「存储」设置页占位。").assertDoesNotExist()
     }
 }

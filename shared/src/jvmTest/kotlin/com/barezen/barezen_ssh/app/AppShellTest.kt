@@ -32,7 +32,8 @@ class AppShellTest {
         onNodeWithText("文件").performClick()
         onNodeWithText("传输队列占位（M2）").assertIsDisplayed()
         onNodeWithText("设置").performClick()
-        onNodeWithText("跟随系统").assertIsNotEnabled()
+        // 设置屏默认落在「外观」分类（本任务该分类为过渡空壳，真实内容在后续任务落地）
+        onNodeWithText("外观").assertIsDisplayed()
         onNodeWithText("仪表盘").performClick()
         onNodeWithText("数据来源：SSH 主机指标").assertIsDisplayed()
     }
