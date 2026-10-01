@@ -128,7 +128,11 @@ fun SettingsScreen(model: AppModel) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                5 -> StorageSettingsSection(settings)
+                5 -> StorageSettingsSection(
+                    settings = settings,
+                    servers = model.servers,
+                    onImport = { list -> list.forEach { model.saveServer(it) } },
+                )
                 6 -> UpdateSettingsSection(settings)
                 7 -> AboutSettingsSection()
             }
@@ -137,15 +141,10 @@ fun SettingsScreen(model: AppModel) {
 }
 
 /**
- * 以下 3 个分类 section 为 Task 6 的**过渡空壳**（真实内容由 Task 10–12 逐个替换）。
+ * 以下 2 个分类 section 为 Task 6 的**过渡空壳**（真实内容由 Task 11–12 逐个替换）。
  * 定义为文件私有，避免与后续任务在独立文件里的同名公开函数冲突。
- * 外观（Task 7）、终端（Task 8）、连接（Task 9）已在独立文件实现，故此处不再保留其空壳。
+ * 外观（Task 7）、终端（Task 8）、连接（Task 9）、存储（Task 10）已在独立文件实现。
  */
-@Composable
-private fun StorageSettingsSection(settings: SettingsModel) {
-    SettingsSectionScaffold("存储") {}
-}
-
 @Composable
 private fun UpdateSettingsSection(settings: SettingsModel) {
     SettingsSectionScaffold("更新") {}

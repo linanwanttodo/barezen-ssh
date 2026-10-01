@@ -109,4 +109,12 @@ class SettingsScreenTest {
         onNodeWithText("连接").performClick()
         onNodeWithText("隐藏服务器地址").assertIsDisplayed()
     }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun storageShowsAbsoluteDataDir() = runComposeUiTest {
+        setContent { BareZenTheme { SettingsScreen(model()) } }
+        onNodeWithText("存储").performClick()
+        onNodeWithText(".barezen", substring = true).assertIsDisplayed()
+        onNodeWithText("打开目录").assertIsDisplayed()
+    }
 }
