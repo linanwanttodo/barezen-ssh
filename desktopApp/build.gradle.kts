@@ -25,7 +25,8 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "BareZen-SSH"
-            packageVersion = "1.0.0"
+            // 版本单一真相源在 gradle.properties；不要在这里硬编码
+            packageVersion = providers.gradleProperty("barezen.version").get()
         }
     }
 }
