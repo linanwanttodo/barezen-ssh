@@ -56,7 +56,7 @@ fun UpdateSettingsSection(settings: SettingsModel, checker: UpdateChecker) {
             if (repoError) Text("格式应为 owner/repo", fontSize = 12.sp)
         },
         singleLine = true,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp).testTag("update-repo-input"),
     )
 
     val channelLabels = listOf("稳定", "预览")

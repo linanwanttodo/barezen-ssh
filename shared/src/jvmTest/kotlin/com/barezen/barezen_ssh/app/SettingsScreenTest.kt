@@ -3,10 +3,12 @@ package com.barezen.barezen_ssh.app
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
 import com.barezen.barezen_ssh.ui.screens.SettingsScreen
@@ -147,5 +149,14 @@ class SettingsScreenTest {
         setContent { BareZenTheme { SettingsScreen(model()) } }
         onNodeWithText("关于").performClick()
         onNodeWithText("反馈").assertDoesNotExist()
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun updateCheckEnabledAfterRepoFilled() = runComposeUiTest {
+        val m = model()
+        setContent { BareZenTheme { SettingsScreen(m) } }
+        onNodeWithText("更新").performClick()
+        onNodeWithTag("update-repo-input").performTextInput("microsoft/vscode")
+        onNodeWithTag("update-check-button").assertIsEnabled()
     }
 }
