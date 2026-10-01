@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -162,14 +163,16 @@ private fun ServersHeader(model: AppModel, onRetry: (Server) -> Unit) {
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (failedState != null) {
-            // 错误横幅（设计包「服务器屏 · 连接失败提示」）：errorContainer 底 + error 图标 + 弹性间隔 + 重试
+            // 错误横幅（设计包 `.banner.error`：error-bg 底 + **1px error 描边** + radius-md(6) +
+            // padding 12/16；重试按钮是 `.btn.ghost.sm.text-error` = 无描边 + error 文字色）
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.errorContainer,
                 shape = RoundedCornerShape(6.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
             ) {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
@@ -185,7 +188,13 @@ private fun ServersHeader(model: AppModel, onRetry: (Server) -> Unit) {
                         fontSize = 13.sp,
                     )
                     Spacer(Modifier.weight(1f))
-                    TextButton(onClick = { onRetry(failedState.server) }) { Text("重试") }
+                    // ghost + text-error：TextButton（无描边）+ error 文字色，照设计包
+                    TextButton(
+                        onClick = { onRetry(failedState.server) },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error,
+                        ),
+                    ) { Text("重试") }
                 }
             }
         } else {
@@ -193,9 +202,13 @@ private fun ServersHeader(model: AppModel, onRetry: (Server) -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
                 shape = RoundedCornerShape(6.dp),
+                // 设计包 .banner：panel 底 + 1px border + radius-md(6)。Task 4 watchlist 共 3 项，
+                // 本轮只清掉「缺描边」这一项；空态图标 32dp vs mock 48px 仍未处理。
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
             ) {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    // 设计包 .banner padding = var(--space-3) var(--space-4) = 12 / 16
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
@@ -211,8 +224,11 @@ private fun ServersHeader(model: AppModel, onRetry: (Server) -> Unit) {
                         fontWeight = FontWeight.Medium,
                     )
                     Spacer(Modifier.weight(1f))
-                    // 占位 M2：真源接入前禁用（不造数——无重连能力就不给可点入口）
-                    Button(
+                    // 占位 M2：真源接入前禁用（不造数——无重连能力就不给可点入口）。
+                    // 设计包 index.html:242 此按钮是 `.btn.ghost.sm`，`.btn.ghost` = 透明底 + 无描边，
+                    // 故对应 M3 的 TextButton（不是 OutlinedButton——那会多出一圈描边）；
+                    // 计划 Task 4 也明文允许「ghost 观感：TextButton 形态亦可」。
+                    TextButton(
                         onClick = {},
                         enabled = false,
                         modifier = Modifier.testTag("reconnect-all"),
@@ -303,7 +319,7 @@ private fun ServerCard(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
@@ -353,9 +369,12 @@ private fun ServerCard(
                     StatTile("运行", Modifier.weight(1f))
                 }
             } else {
+                // 未连接提示体（设计包内联样式 index.html:284）：
+                // panel 底 + 1px border-subtle + radius-md(6) + padding 12 + 12sp secondary
                 Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.55f),
-                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    shape = RoundedCornerShape(6.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 ) {
                     Row(
                         Modifier.fillMaxWidth().padding(12.dp),
@@ -424,13 +443,14 @@ private fun ServerCard(
 
 /**
  * 统计瓦片（设计包组件表：6px 圆角 + border-subtle 描边）。
- * 卡片底已是 panel，故瓦片走 background 底形成层次；值为「—」＝ M4 占位（不造数）。
+ * 卡片底已是 surface，瓦片走 panel(surfaceContainerLow) 形成层次；
+ * 值为「—」＝ M4 占位（不造数）。
  */
 @Composable
 private fun StatTile(label: String, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
-        color = MaterialTheme.colorScheme.background,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         shape = RoundedCornerShape(6.dp),
     ) {

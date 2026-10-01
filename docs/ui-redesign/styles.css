@@ -526,6 +526,24 @@ td code {
   color: var(--accent);
 }
 
+/* ── 禁用 / 占位态（补充规范，2026-10-01） ─────────────────────────────
+   本设计包原只定义启用态。凡因功能未接入（M2–M5）而必须禁用的占位控件，
+   一律不得保留填充形态：primary / secondary 禁用时降为「透明底 + 1px border-subtle」
+   的描边形态（即 M3 OutlinedButton 的观感）；ghost 本无描边，禁用后保持无描边文字
+   形态（即 M3 TextButton 的观感）。目的是避免填充灰药丸被误读为"坏掉的控件"。
+   文字降为 text-secondary，保留 disabled 语义，且无悬浮/发光/位移动效。 */
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.btn.ghost:disabled,
+.btn.ghost[aria-disabled="true"] {
+  border: 0;
+}
+
 .btn.sm {
   height: 28px;
   padding: 0 var(--space-3);

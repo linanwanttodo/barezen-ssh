@@ -1,13 +1,13 @@
 // shared/src/jvmMain/kotlin/com/barezen/barezen_ssh/ui/screens/SettingsScreen.kt
 package com.barezen.barezen_ssh.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,10 +18,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,11 +50,11 @@ fun SettingsScreen() {
     var selected by remember { mutableStateOf(0) }
 
     Row(Modifier.fillMaxSize()) {
-        // 左列：200dp、panel 底、右 1dp border
+        // 左列：200dp、surface 底（与主侧栏同层）、右 1dp border
         Column(
             Modifier.width(200.dp)
                 .fillMaxHeight()
-                .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                .background(MaterialTheme.colorScheme.surface)
                 .padding(8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
@@ -65,7 +65,7 @@ fun SettingsScreen() {
                         .height(40.dp)
                         .clip(RoundedCornerShape(6.dp))
                         .background(
-                            if (active) MaterialTheme.colorScheme.surfaceContainerHigh
+                            if (active) MaterialTheme.colorScheme.surfaceContainer
                             else Color.Transparent
                         )
                         .clickable { selected = index }
@@ -91,13 +91,10 @@ fun SettingsScreen() {
     }
 }
 
-/** 分类 0（外观）：标题 + 4 行禁用设置行。 */
+/** 分类 0（外观）：标题 + 4 行禁用设置行（分隔线行，非卡片）。 */
 @Composable
 private fun AppearanceContent(modifier: Modifier = Modifier) {
-    Column(
-        modifier.padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
+    Column(modifier.padding(24.dp)) {
         // 设计稿内容标题与左栏选中项同词；标题仅视觉呈现、不进语义树
         // （当前分类已由左栏选中项播报，避免同一词重复）。
         Text(
@@ -105,10 +102,12 @@ private fun AppearanceContent(modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.clearAndSetSemantics {},
         )
+        Spacer(Modifier.height(4.dp))
+        // 行间不额外拉开距离：设计包 .setting-row 自带 padding 16/0 + 底边线
         SettingRow("主题", "跟随系统 / 浅色 / 深色", "跟随系统")
         SettingRow("界面字体", "Noto Sans SC", "选择")
         SettingRow("界面缩放", null, "100%")
-        SettingRow("显示语言", null, "简体中文")
+        SettingRow("显示语言", null, "简体中文", showDivider = false)
     }
 }
 
@@ -136,19 +135,20 @@ private fun CategoryPlaceholder(name: String, modifier: Modifier = Modifier) {
 }
 
 /**
- * 设置行：panel 底、6dp 圆角、1dp borderSubtle、padding 12/16；
- * 左列 label + desc，右列禁用 OutlinedButton（无持久化后端）。
+ * 设置行：按设计包 `.setting-row` —— **分隔线行，不是卡片**：
+ * `padding: var(--space-4) 0`（16/0）+ 底边 `1px var(--border-subtle)`（末行无）；
+ * 无底色、无圆角、无整圈描边。左列 label + desc，右列禁用 OutlinedButton（无持久化后端）。
  */
 @Composable
-private fun SettingRow(label: String, desc: String?, buttonLabel: String) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(6.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-    ) {
+private fun SettingRow(
+    label: String,
+    desc: String?,
+    buttonLabel: String,
+    showDivider: Boolean = true,
+) {
+    Column(Modifier.fillMaxWidth()) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            Modifier.fillMaxWidth().padding(vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(
@@ -161,6 +161,9 @@ private fun SettingRow(label: String, desc: String?, buttonLabel: String) {
                 }
             }
             OutlinedButton(onClick = {}, enabled = false) { Text(buttonLabel) }
+        }
+        if (showDivider) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
     }
 }

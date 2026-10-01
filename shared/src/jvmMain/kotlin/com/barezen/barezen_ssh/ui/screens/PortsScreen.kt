@@ -15,9 +15,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,18 +41,24 @@ fun PortsScreen() {
         ) {
             Text("端口转发", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.weight(1f))
-            Button(onClick = {}, enabled = false) { Text("新建转发") }
+            // 占位禁用走 OutlinedButton —— **显式偏离**设计包 index.html:551（那里画的是「启用态」
+            // .btn primary）。理由：本按钮按计划非目标必须 enabled=false，而设计包全篇未定义任何
+            // 禁用态控件；Button 的禁用态是低对比灰填充，观感像坏控件。故改与仪表盘/文件屏既有的
+            // 禁用占位控件（同为 OutlinedButton）保持一致。此项记入 polish-report §6 待用户裁决，
+            // 不当作「符规」默认项。
+            OutlinedButton(onClick = {}, enabled = false) { Text("新建转发") }
         }
 
         Column(
             Modifier.weight(1f).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // 信息横幅：panel 底 + 8dp 圆角 + 1dp border；「0 条」是真值（不造数）
+            // 信息横幅：设计包 .banner = panel 底 + 1px border + radius-md(6)；
+            // 「0 条」是真值（不造数）。原为 8dp，与 ServersScreen 同款横幅的 6dp 不一致。
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(6.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
             ) {
                 Row(
@@ -79,18 +85,22 @@ fun PortsScreen() {
                 subtitle = "类型：本地监听 / 服务器监听 / SOCKS5",
             )
 
-            // 卡 2：已保存的配置 / 活动转发列表占位
-            PlaceholderCard(title = "已保存的配置 / 活动转发列表占位（M3）", subtitle = null)
+            // 卡 2：已保存的配置 / 活动转发列表占位（填满剩余高度，不留整屏空白）
+            PlaceholderCard(
+                title = "已保存的配置 / 活动转发列表占位（M3）",
+                subtitle = null,
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }
 
-/** 占位卡（通用卡片皮肤：background 底、8dp 圆角、1dp border）。 */
+/** 占位卡（设计包通用卡片皮肤：surface 底、8dp 圆角、1dp border）。 */
 @Composable
-private fun PlaceholderCard(title: String, subtitle: String?) {
+private fun PlaceholderCard(title: String, subtitle: String?, modifier: Modifier = Modifier) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.background,
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {

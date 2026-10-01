@@ -118,17 +118,19 @@ private fun AppSidebar(
             .width(if (collapsed) 56.dp else 200.dp)
             .background(MaterialTheme.colorScheme.surface),
     ) {
-        Column(Modifier.fillMaxSize()) {
+        // 设计包 .collapse-btn { margin: auto var(--space-2) var(--space-2) }：顶部 auto 由上面的
+        // 弹性间隔承担，底部 8px 这里用列底 padding 表达（原实现是第二个弹性间隔，已删）
+        Column(Modifier.fillMaxSize().padding(bottom = 8.dp)) {
             SidebarHeader(collapsed)
             SidebarItem(Destination.DASHBOARD, model, collapsed)
             SidebarItem(Destination.SERVERS, model, collapsed)
             SidebarItem(Destination.TERMINAL, model, collapsed)
             SidebarItem(Destination.FILES, model, collapsed)
-            // 设计包 mock-nav-spacer：文件与端口转发之间的弹性间隔
+            // 设计包 mock-nav-spacer：文件与端口转发之间的弹性间隔（仅此一个弹性间隔——
+            // 设计包 .mock-nav-spacer{flex:1} 只有一个，端口转发/设置因此钉在列底部）
             Spacer(Modifier.weight(1f))
             SidebarItem(Destination.PORTS, model, collapsed)
             SidebarItem(Destination.SETTINGS, model, collapsed)
-            Spacer(Modifier.weight(1f))
             SidebarToggle(collapsed, onToggle)
         }
         // 右缘 1dp borderSubtle 竖线（Box 后置）

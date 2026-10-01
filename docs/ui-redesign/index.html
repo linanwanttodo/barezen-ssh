@@ -629,6 +629,7 @@
               <tr><td>搜索框</td><td>bg 背景，1px border，圆角 6px，左侧搜索图标</td><td>服务器搜索、文件搜索</td></tr>
               <tr><td>标签 Chip</td><td>药丸形，1px border-subtle，选中时 accent 描边 + accent-subtle 背景</td><td>标签过滤、状态标记</td></tr>
               <tr><td>按钮</td><td>6px 圆角；primary 为 accent 填充；secondary 为 panel + border；ghost 为透明文字</td><td>主操作 / 次级操作 / 文字操作</td></tr>
+              <tr><td>禁用 / 占位控件</td><td>无填充：描边（透明底 + 1px border-subtle）或无描边文字；文字降为 text-secondary</td><td>M2–M5 未接入的功能入口；必须保留 disabled 语义，不留可点入口</td></tr>
               <tr><td>图标按钮</td><td>32px 正方形，透明背景，6px 圆角，仅图标</td><td>编辑、关闭、更多菜单触发</td></tr>
               <tr><td>服务器卡片</td><td>8px 圆角 panel 背景 + border；含头部、统计瓦片、状态行、操作行</td><td>服务器列表主要载体</td></tr>
               <tr><td>统计瓦片</td><td>panel + border-subtle，6px 圆角，10px 标签 + 14px mono 数值</td><td>卡片微瓦片、仪表盘指标</td></tr>
@@ -643,6 +644,17 @@
             </tbody>
           </table>
         </div>
+        <p class="section-lead" id="disabled-states">
+          <strong>禁用 / 占位态（补充规范，2026-10-01）：</strong>本设计包原只定义启用态，导致按计划
+          必须禁用的占位入口（如端口转发「新建转发」）落入组件库默认的<b>填充灰药丸</b>观感，被误读为坏控件。
+          现补定：凡因功能未接入（M2–M5）而必须禁用的占位控件，一律<b>不得保留填充形态</b>——
+          原形态为 <code>primary</code> / <code>secondary</code> 者降为「透明底 + 1px <code>border-subtle</code>」描边形态；
+          原形态为 <code>ghost</code> 者保持无描边文字形态。文字降为 <code>--text-secondary</code>，
+          保留 <code>disabled</code> 语义（无悬浮、无发光、无位移动效）。
+          对应实现为 M3 的 <code>OutlinedButton</code>（描边）与 <code>TextButton</code>（无描边），两者皆
+          <code>enabled = false</code>；见 <code>styles.css</code> 的 <code>.btn:disabled</code> 与
+          <code>.btn.ghost:disabled</code>。
+        </p>
       </section>
 
       <!-- ── 动效与减弱 ─────────────────────────────────────── -->

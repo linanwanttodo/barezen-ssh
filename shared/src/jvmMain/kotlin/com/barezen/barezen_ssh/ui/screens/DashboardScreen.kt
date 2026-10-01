@@ -66,19 +66,22 @@ fun DashboardScreen() {
                 MetricCard("运行时间", Modifier.weight(1f))
             }
 
-            // 两张图表卡：160dp 高、标题在顶、卡内居中图标
-            ChartCard("CPU / 内存 / 网络折线图占位（M4）")
-            ChartCard("磁盘用量条形图占位（M4）")
+            // 两张图表卡：按权重等高填满剩余高度（设计包 .chart-card 只给 min-height、不写死高度）。
+            // 1440×900 目标窗口下各分得约 344dp，远高于设计包的 200px 下限。
+            // 不写 heightIn(min=200)：weight(fill=true) 下发的是「精确」高度约束，heightIn 的
+            // 下限会被 constrain 夹回（等于死代码），requiredHeightIn 则会顶破这一列（无滚动容器）。
+            ChartCard("CPU / 内存 / 网络折线图占位（M4）", Modifier.weight(1f))
+            ChartCard("磁盘用量条形图占位（M4）", Modifier.weight(1f))
         }
     }
 }
 
-/** 指标卡：panel 皮肤（通用卡片式样），值位「—」。 */
+/** 指标卡：surface 皮肤（设计包 .metric-card background: var(--surface)），值位「—」。 */
 @Composable
 private fun MetricCard(label: String, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
-        color = MaterialTheme.colorScheme.background,
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
@@ -92,12 +95,13 @@ private fun MetricCard(label: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** 图表占位卡：160dp 高、标题顶部、居中 Insights 图标（弱化）。 */
+/** 图表占位卡：surface 底（设计包 .chart-card）、标题顶部、居中 Insights 图标（弱化）。 */
 @Composable
-private fun ChartCard(title: String) {
+private fun ChartCard(title: String, modifier: Modifier = Modifier) {
     Surface(
-        modifier = Modifier.fillMaxWidth().height(160.dp),
-        color = MaterialTheme.colorScheme.background,
+        // 高度由调用方 weight(1f) 决定；不叠 heightIn（在精确约束下无效，见调用处注释）
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {

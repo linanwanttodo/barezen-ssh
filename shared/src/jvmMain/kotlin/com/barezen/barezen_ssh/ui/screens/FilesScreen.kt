@@ -89,22 +89,24 @@ fun FilesScreen() {
     }
 }
 
-/** 单栏：panel 底、8dp 圆角、1dp border；栏头 + 列头行 + 居中占位体。 */
+/** 单栏：surface 底、radius-md(6dp)、1dp border；栏头 panel 底 + 底边线 + 列头行 + 居中占位体。 */
 @Composable
 private fun FilePane(title: String, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier.fillMaxHeight(),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(6.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
         Column(Modifier.fillMaxSize()) {
-            // 栏头（panel 上条）
+            // 栏头（设计包 .file-pane-header：panel 底 + 600 字重 + 1px 底边线）
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                Modifier.fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(title, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                Text(title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
 
