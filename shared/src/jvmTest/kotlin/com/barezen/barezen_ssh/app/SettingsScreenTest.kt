@@ -4,6 +4,7 @@ package com.barezen.barezen_ssh.app
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -12,6 +13,7 @@ import com.barezen.barezen_ssh.ui.screens.SettingsScreen
 import com.barezen.barezen_ssh.ui.theme.BareZenTheme
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class SettingsScreenTest {
 
@@ -125,5 +127,25 @@ class SettingsScreenTest {
         onNodeWithText("更新").performClick()
         onNodeWithText("请先填写更新源").assertIsDisplayed()
         onNodeWithTag("update-check-button").assertIsNotEnabled()
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun aboutShowsVersionAndLicences() = runComposeUiTest {
+        setContent { BareZenTheme { SettingsScreen(model()) } }
+        onNodeWithText("关于").performClick()
+        onNodeWithText(com.barezen.barezen_ssh.BuildInfo.VERSION, substring = true).assertExists()
+        // 组件名/许可名可能与 URL 里的字样重复出现 —— 断言「至少存在一个」而非唯一
+        fun visible(text: String) =
+            onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
+        listOf("sshj", "JediTerm", "JetBrains Mono", "Noto Sans SC").forEach { visible(it) }
+        assertTrue(visible("Apache-2.0"))
+        assertTrue(visible("OFL-1.1"))
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun aboutHidesFeedbackWhenUrlIsBlank() = runComposeUiTest {
+        setContent { BareZenTheme { SettingsScreen(model()) } }
+        onNodeWithText("关于").performClick()
+        onNodeWithText("反馈").assertDoesNotExist()
     }
 }

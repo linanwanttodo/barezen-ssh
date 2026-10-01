@@ -137,18 +137,10 @@ fun SettingsScreen(model: AppModel) {
                     settings = settings,
                     checker = remember { com.barezen.barezen_ssh.settings.UpdateChecker.production() },
                 )
-                7 -> AboutSettingsSection()
+                7 -> AboutSettingsSection(settings)
             }
         }
     }
 }
 
-/**
- * 关于分类 section 为 Task 6 的**过渡空壳**（真实内容由 Task 12 替换）。
- * 外观（Task 7）、终端（Task 8）、连接（Task 9）、存储（Task 10）、更新（Task 11）
- * 已在独立文件实现。
- */
-@Composable
-private fun AboutSettingsSection() {
-    SettingsSectionScaffold("关于") {}
-}
+/** 六个真分类 section 均已在独立文件实现（Task 7–12），设置屏本文件不再保留过渡空壳。 */
