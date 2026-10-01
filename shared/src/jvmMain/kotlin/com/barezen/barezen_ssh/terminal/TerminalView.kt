@@ -16,6 +16,7 @@ import com.jediterm.terminal.ui.JediTermWidget
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider
 import java.awt.Color
 import java.awt.Font
+import com.barezen.barezen_ssh.settings.AppSettings
 
 /**
  * 终端组件：JediTermWidget + SSH 会话管道。三条语义（3.73 挂接方式以 sources 核对为准）：
@@ -25,9 +26,13 @@ import java.awt.Font
  * ③ 用户键盘输入 → JediTerm 写入 connector.write → channel.write。
  */
 @Composable
-fun TerminalView(session: SshSession, modifier: Modifier = Modifier) {
+fun TerminalView(
+    session: SshSession,
+    settings: AppSettings = AppSettings.Default,
+    modifier: Modifier = Modifier,
+) {
     val widget = remember(session) {
-        JediTermWidget(BareZenTerminalSettings()).apply {
+        JediTermWidget(BareZenTerminalSettings(settings.copyOnSelect)).apply {
             //SwingPanel 的 background 参数已弃用（compose 1.12.1）：按其指引在组件创建时手动设置，同为 #1E1E1E
             background = Color(TerminalPalette.Background)
         }
@@ -67,7 +72,9 @@ fun TerminalView(session: SshSession, modifier: Modifier = Modifier) {
  * 的默认实现又从它派生——TerminalPanel 的窗口色与 null 色回退两条渲染路径都收敛到此，
  * 故覆盖 [getDefaultStyle] 即是唯一生效入口（只覆盖 getDefaultForeground/Background 不够）。
  */
-private class BareZenTerminalSettings : DefaultSettingsProvider() {
+private class BareZenTerminalSettings(
+    private val copyOnSelect: Boolean,
+) : DefaultSettingsProvider() {
     // 官方弃用提示（改用 getDefaultForeground/Background）在 3.73 不成立，见类注释；此处仅为抑制 OVERRIDE_DEPRECATION
     @Suppress("OVERRIDE_DEPRECATION")
     override fun getDefaultStyle(): TextStyle =
@@ -79,6 +86,10 @@ private class BareZenTerminalSettings : DefaultSettingsProvider() {
     override fun getTerminalFont(): Font = Font(TERMINAL_FONT_FAMILY, Font.PLAIN, TERMINAL_FONT_SIZE)
 
     override fun getTerminalFontSize(): Float = TERMINAL_FONT_SIZE.toFloat()
+
+    // 设置·选中即复制：javap 已确认 SettingsProvider（DefaultSettingsProvider）声明 copyOnSelect()，
+    // 且被 TerminalPanel 消费（选中即写入剪贴板）。此处把它接到用户设置。
+    override fun copyOnSelect(): Boolean = copyOnSelect
 
     private companion object {
         const val TERMINAL_FONT_FAMILY = "JetBrains Mono"

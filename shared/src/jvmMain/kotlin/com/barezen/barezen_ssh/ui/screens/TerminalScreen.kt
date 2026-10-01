@@ -177,7 +177,7 @@ private fun ConnectedPane(model: AppModel, state: ConnectionState.Connected) {
             model.reportShellStartFailed(state.server, message)
         }
     }
-    TerminalView(guarded, Modifier.fillMaxSize())
+    TerminalView(guarded, model.settings.settings, Modifier.fillMaxSize())
 }
 
 /**

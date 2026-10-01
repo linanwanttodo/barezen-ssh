@@ -37,6 +37,13 @@ data class AppSettings(
     val terminalFont: String = TERMINAL_FONT_DEFAULT,
     val terminalPalette: String = TERMINAL_PALETTE_DEFAULT,
     val copyOnSelect: Boolean = false,
+    /**
+     * Shift+Insert 粘贴。**数据字段保留**（避免 schema 变动），但 UI 不渲染该行。
+     * 依据：已用 `javap`/`grep` 核实 JediTerm 3.73 的 `TerminalPanel` 无任何 INSERT 键绑定、
+     * `emulateX11CopyPaste()` 是死方法、`pasteFromClipboard` 为 private 且无 ActionMap 入口 ——
+     * 底层做不到，故按设计 §9.4 / R7「做不到就删行，绝不渲染无效开关」删除整行。
+     * 待 JediTerm 支持或自研 Swing 键绑定后，再启用此字段并恢复该行。
+     */
     val shiftInsertPaste: Boolean = true,
     val sudoAutofill: Boolean = false,
     // 连接

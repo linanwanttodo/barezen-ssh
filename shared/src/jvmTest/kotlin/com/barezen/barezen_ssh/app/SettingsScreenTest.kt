@@ -62,4 +62,36 @@ class SettingsScreenTest {
         onNodeWithText("Noto Sans SC").assertIsDisplayed()
         onNodeWithText("随包分发，暂无可选项").assertIsDisplayed()
     }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun terminalToggleBindsToModel() = runComposeUiTest {
+        // 渲染「选中即复制」开关行 + 其 desc（绑定由 ToggleRow 的 checked/onCheckedChange 接入 settings.update，见实现）
+        setContent { BareZenTheme { SettingsScreen(model()) } }
+        onNodeWithText("终端").performClick()
+        onNodeWithText("选中即复制").assertIsDisplayed()
+        onNodeWithText("开启后，在终端里选中文本即写入剪贴板").assertExists()
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun sudoAutofillIsLabelledAsPending() = runComposeUiTest {
+        setContent { BareZenTheme { SettingsScreen(model()) } }
+        onNodeWithText("终端").performClick()
+        onNodeWithText("（待凭据库接入后生效）", substring = true).assertExists()
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun terminalFontAndPaletteAreStaticSingleValueRows() = runComposeUiTest {
+        setContent { BareZenTheme { SettingsScreen(model()) } }
+        onNodeWithText("终端").performClick()
+        onNodeWithText("JetBrains Mono").assertIsDisplayed()
+        onNodeWithText("石墨（graphite）").assertIsDisplayed()
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun shiftInsertRowIsNotRendered() = runComposeUiTest {
+        // 分支 B：JediTerm 3.73 无 Shift+Insert 能力，绝不渲染点了没反应的开关（设计 §9.4 / R7）
+        setContent { BareZenTheme { SettingsScreen(model()) } }
+        onNodeWithText("终端").performClick()
+        onNodeWithText("Shift+Insert 粘贴").assertDoesNotExist()
+    }
 }
