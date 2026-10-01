@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.barezen.barezen_ssh.ui.theme.focusRing
 
 /** 设置八分类（plan 决策表：外观 4 行全渲染但禁用；其余 7 分类 = 占位空态）。 */
 private val SettingsCategories =
@@ -60,14 +61,17 @@ fun SettingsScreen() {
         ) {
             SettingsCategories.forEachIndexed { index, name ->
                 val active = index == selected
+                val catShape = RoundedCornerShape(6.dp)
                 Row(
                     Modifier.fillMaxWidth()
                         .height(40.dp)
-                        .clip(RoundedCornerShape(6.dp))
+                        .clip(catShape)
                         .background(
                             if (active) MaterialTheme.colorScheme.surfaceContainer
                             else Color.Transparent
                         )
+                        // 键盘焦点环（需求 §2 硬约束 3）：须在 clickable 之前才能观察到焦点
+                        .focusRing(catShape)
                         .clickable { selected = index }
                         .padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,

@@ -94,7 +94,7 @@ class ServersScreenTest {
         val m = model()
         val failed = Server("1", "web-01", "10.0.0.11", 22, "root")
         m.applyConnectionForTest(ConnectionState.Failed(failed, "Auth fail"))
-        setContent { BareZenAppContent(model = m) }
+        setContent { BareZenTheme { BareZenAppContent(model = m) } }
         // Task 5 起失败态横幅与覆盖层同现（ConnectFlowTest 断言 2→1），先关覆盖层再走原意
         assertEquals(2, onAllNodesWithText("连接失败：Auth fail").fetchSemanticsNodes().size)
         onNodeWithText("取消").performClick()      // 只有覆盖层有「取消」，横幅没有

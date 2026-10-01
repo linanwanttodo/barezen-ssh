@@ -54,6 +54,7 @@ import com.barezen.barezen_ssh.ui.screens.PortsScreen
 import com.barezen.barezen_ssh.ui.screens.ServersScreen
 import com.barezen.barezen_ssh.ui.screens.SettingsScreen
 import com.barezen.barezen_ssh.ui.screens.TerminalScreen
+import com.barezen.barezen_ssh.ui.theme.focusRing
 
 /**
  * 应用外壳：200px 可折叠侧边导航（设计包「外壳/侧边导航」）+ 右侧内容区路由。
@@ -179,14 +180,18 @@ private fun navIcon(to: Destination): ImageVector = when (to) {
 @Composable
 private fun SidebarItem(dest: Destination, model: AppModel, collapsed: Boolean) {
     val isSelected = model.current == dest
+    val navRowShape = RoundedCornerShape(6.dp)
     Row(
         Modifier.fillMaxWidth()
             .height(40.dp)
             .padding(horizontal = if (collapsed) 18.dp else 12.dp)
-            .clip(RoundedCornerShape(6.dp))
+            .clip(navRowShape)
             .background(
                 if (isSelected) MaterialTheme.colorScheme.surfaceContainer else Color.Transparent,
             )
+            // 键盘焦点环（需求 §2 硬约束 3）。**必须放在 clickable 之前**：
+            // onFocusChanged 只能观察到链上位于其后的 focusable/focusTarget 的焦点状态。
+            .focusRing(navRowShape)
             .clickable { model.navigate(dest) }
             .semantics { selected = isSelected },
         verticalAlignment = Alignment.CenterVertically,
@@ -213,10 +218,14 @@ private fun SidebarItem(dest: Destination, model: AppModel, collapsed: Boolean) 
 /** 底部收起/展开按钮：展开态 ChevronLeft + 「收起」，折叠态仅 ChevronRight。 */
 @Composable
 private fun SidebarToggle(collapsed: Boolean, onToggle: () -> Unit) {
+    val toggleShape = RoundedCornerShape(6.dp)
     Row(
         Modifier.fillMaxWidth()
             .height(40.dp)
             .padding(horizontal = if (collapsed) 18.dp else 12.dp)
+            .clip(toggleShape)
+            // 键盘焦点环（需求 §2 硬约束 3）：须在 clickable 之前，见 SidebarItem 注释
+            .focusRing(toggleShape)
             .clickable { onToggle() }
             .testTag("sidebar-toggle"),
         verticalAlignment = Alignment.CenterVertically,

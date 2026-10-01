@@ -14,6 +14,7 @@ import com.barezen.barezen_ssh.ssh.ConnectionState
 import com.barezen.barezen_ssh.ssh.SshClient
 import com.barezen.barezen_ssh.ssh.SshSession
 import com.barezen.barezen_ssh.ui.shell.BareZenAppContent
+import com.barezen.barezen_ssh.ui.theme.BareZenTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -47,7 +48,7 @@ class ConnectFlowTest {
         m.requestConnect(web01)
         m.confirmConnect(AuthMethod.Password("pw"))
         assertTrue(m.connection is ConnectionState.Connecting)
-        setContent { BareZenAppContent(model = m) }
+        setContent { BareZenTheme { BareZenAppContent(model = m) } }
         onNodeWithText("正在连接 web-01…").assertIsDisplayed()
         onNodeWithText("取消").performClick()
         assertTrue(m.connection is ConnectionState.Disconnected)
@@ -62,7 +63,7 @@ class ConnectFlowTest {
         m.requestConnect(web01)
         m.confirmConnect(AuthMethod.Password("pw"))
         assertTrue(m.connection is ConnectionState.Failed)
-        setContent { BareZenAppContent(model = m) }
+        setContent { BareZenTheme { BareZenAppContent(model = m) } }
         // 对话框与横幅同文案：先 2 个节点，关掉对话框后剩横幅 1 个
         assertEquals(2, onAllNodesWithText("连接失败：Auth fail").fetchSemanticsNodes().size)
         onNodeWithText("取消").performClick()
@@ -103,7 +104,7 @@ class ConnectFlowTest {
         val m = model(object : SshClient {
             override suspend fun connect(request: ConnectRequest): SshSession = error("unused")
         })
-        setContent { BareZenAppContent(model = m) }
+        setContent { BareZenTheme { BareZenAppContent(model = m) } }
         m.requestConnect(web01)                       // 弹认证对话框
         onNodeWithText("密码仅保存在内存中，不会写入本地文件。").assertIsDisplayed()
     }
