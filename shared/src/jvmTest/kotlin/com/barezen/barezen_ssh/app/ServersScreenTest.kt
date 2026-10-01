@@ -17,12 +17,14 @@ import com.barezen.barezen_ssh.settings.NoopSettingsRepository
 import com.barezen.barezen_ssh.ssh.ConnectRequest
 import com.barezen.barezen_ssh.ssh.ConnectionState
 import com.barezen.barezen_ssh.ssh.SshClient
+import com.barezen.barezen_ssh.ui.ADDRESS_MASK
 import com.barezen.barezen_ssh.ui.theme.BareZenTheme
 import com.barezen.barezen_ssh.ui.screens.ServersScreen
 import com.barezen.barezen_ssh.ui.shell.BareZenAppContent
 import kotlinx.coroutines.CoroutineScope
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class ServersScreenTest {
     private fun model() = AppModel(
@@ -118,5 +120,15 @@ class ServersScreenTest {
         onNodeWithText("已连接 · 24 ms").assertIsDisplayed()
         // 三个指标值均为「—」（M4 占位，不造数）
         assertEquals(3, onAllNodesWithText("—").fetchSemanticsNodes().size)
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun hideAddressesMasksHostAndPort() = runComposeUiTest {
+        val m = model()
+        m.settings.update { it.copy(hideAddresses = true) }
+        setContent { BareZenTheme { ServersScreen(m, onNewTerminal = {}, onOpenFiles = {}) } }
+        onNodeWithText("10.0.0.11:22", substring = true).assertDoesNotExist()
+        // 夹具有两台服务器，两张卡片都显示掩码 —— 断言「至少一张卡在显示掩码」
+        assertTrue(onAllNodesWithText(ADDRESS_MASK).fetchSemanticsNodes().isNotEmpty())
     }
 }

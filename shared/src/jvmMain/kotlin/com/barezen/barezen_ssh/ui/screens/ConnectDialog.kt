@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.barezen.barezen_ssh.servers.Server
 import com.barezen.barezen_ssh.servers.StoredAuth
 import com.barezen.barezen_ssh.ssh.AuthMethod
+import com.barezen.barezen_ssh.ui.ADDRESS_MASK
 import javax.swing.JFileChooser
 
 /**
@@ -43,7 +44,11 @@ import javax.swing.JFileChooser
  * 对话框离组合即消失（对话框的唯一输出是 [AuthMethod]）。
  */
 @Composable
-fun ConnectDialog(server: Server, onResult: (AuthMethod?) -> Unit) {
+fun ConnectDialog(
+    server: Server,
+    hideAddresses: Boolean = false,
+    onResult: (AuthMethod?) -> Unit,
+) {
     var useKey by remember(server) { mutableStateOf(server.auth is StoredAuth.Key) }
     var password by remember(server) { mutableStateOf("") }
     var keyPath by remember(server) { mutableStateOf((server.auth as? StoredAuth.Key)?.keyPath ?: "") }
@@ -65,7 +70,7 @@ fun ConnectDialog(server: Server, onResult: (AuthMethod?) -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
-                    value = server.port.toString(),
+                    value = if (hideAddresses) ADDRESS_MASK else server.port.toString(),
                     onValueChange = {},
                     enabled = false,
                     label = { Text("端口") },

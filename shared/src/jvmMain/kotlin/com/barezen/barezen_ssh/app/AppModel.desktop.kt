@@ -12,4 +12,4 @@ fun AppModel.Companion.real(): AppModel = AppModel(
     ssh = JvmSshClient(),
     scope = CoroutineScope(Dispatchers.Default),
     settings = SettingsModel(FileSettingsRepository()).also { it.load() },
-)
+).also { it.autoConnectIfConfigured() }

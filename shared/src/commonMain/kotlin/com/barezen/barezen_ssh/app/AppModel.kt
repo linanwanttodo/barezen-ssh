@@ -10,6 +10,7 @@ import com.barezen.barezen_ssh.ssh.SshClient
 import com.barezen.barezen_ssh.ssh.SshSession
 import com.barezen.barezen_ssh.servers.Server
 import com.barezen.barezen_ssh.servers.ServerRepository
+import com.barezen.barezen_ssh.servers.StoredAuth
 import com.barezen.barezen_ssh.servers.filterServers
 import com.barezen.barezen_ssh.settings.NoopSettingsRepository
 import kotlinx.coroutines.CoroutineScope
@@ -91,6 +92,15 @@ class AppModel(
         connectJob?.cancel()
         connectJob = null
         connection = ConnectionState.Disconnected
+    }
+
+    /** 启动时连接：只对「私钥认证」且 id 仍存在的服务器生效。
+     *  密码认证的服务器不自动连接 —— 我们没有也不该有持久化密码。 */
+    fun autoConnectIfConfigured() {
+        val id = settings.settings.autoConnectServerId ?: return
+        val server = servers.firstOrNull { it.id == id } ?: return   // 不存在：不连接、不弹窗、不打扰
+        if (server.auth !is StoredAuth.Key) return
+        startConnect(server, AuthMethod.PrivateKey((server.auth as StoredAuth.Key).keyPath))
     }
 
     fun disconnect() {

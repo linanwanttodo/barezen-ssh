@@ -95,6 +95,7 @@ fun BareZenAppContent(model: AppModel) {
     model.pendingConnect?.let { server ->
         ConnectDialog(
             server = server,
+            hideAddresses = model.settings.settings.hideAddresses,
             onResult = { auth ->
                 if (auth != null) model.confirmConnect(auth) else model.dismissConnect()
             },

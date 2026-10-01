@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.barezen.barezen_ssh.app.AppModel
 import com.barezen.barezen_ssh.app.SettingsModel
-import com.barezen.barezen_ssh.servers.Server
 import com.barezen.barezen_ssh.ui.theme.focusRing
 
 /** 设置八分类（左列导航；右列 6 真分类路由到 section，智能助手/凭据为诚实占位）。 */
@@ -138,16 +137,10 @@ fun SettingsScreen(model: AppModel) {
 }
 
 /**
- * 以下 4 个分类 section 为 Task 6 的**过渡空壳**（真实内容由 Task 9–12 逐个替换）。
+ * 以下 3 个分类 section 为 Task 6 的**过渡空壳**（真实内容由 Task 10–12 逐个替换）。
  * 定义为文件私有，避免与后续任务在独立文件里的同名公开函数冲突。
- * 外观（AppearanceSettingsSection，Task 7）与终端（TerminalSettingsSection，Task 8）
- * 已在独立文件实现，故此处不再保留其空壳。
+ * 外观（Task 7）、终端（Task 8）、连接（Task 9）已在独立文件实现，故此处不再保留其空壳。
  */
-@Composable
-private fun ConnectionSettingsSection(settings: SettingsModel, servers: List<Server>) {
-    SettingsSectionScaffold("连接") {}
-}
-
 @Composable
 private fun StorageSettingsSection(settings: SettingsModel) {
     SettingsSectionScaffold("存储") {}

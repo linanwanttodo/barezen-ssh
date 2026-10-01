@@ -65,6 +65,7 @@ import com.barezen.barezen_ssh.app.AppModel
 import com.barezen.barezen_ssh.servers.Server
 import com.barezen.barezen_ssh.servers.StoredAuth
 import com.barezen.barezen_ssh.ssh.ConnectionState
+import com.barezen.barezen_ssh.ui.ADDRESS_MASK
 import com.barezen.barezen_ssh.ui.theme.BareZenMonoBody
 import com.barezen.barezen_ssh.ui.theme.BareZenMonoSmall
 import kotlin.uuid.ExperimentalUuidApi
@@ -114,6 +115,7 @@ fun ServersScreen(
                     ServerCard(
                         server = server,
                         connection = model.connection,
+                        hideAddresses = model.settings.settings.hideAddresses,
                         onConnect = { model.requestConnect(it) },
                         onNewTerminal = onNewTerminal,
                         onOpenFiles = onOpenFiles,
@@ -306,6 +308,7 @@ private fun ServersEmptyState(filtered: Boolean, onCreate: () -> Unit) {
 private fun ServerCard(
     server: Server,
     connection: ConnectionState,
+    hideAddresses: Boolean,
     onConnect: (Server) -> Unit,
     onNewTerminal: (Server) -> Unit,
     onOpenFiles: () -> Unit,
@@ -338,7 +341,7 @@ private fun ServerCard(
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(server.name, style = MaterialTheme.typography.titleSmall)
                     Text(
-                        "${server.host}:${server.port}",
+                        if (hideAddresses) ADDRESS_MASK else "${server.host}:${server.port}",
                         style = BareZenMonoBody,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

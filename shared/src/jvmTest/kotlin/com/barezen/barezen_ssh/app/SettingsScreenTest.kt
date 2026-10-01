@@ -94,4 +94,19 @@ class SettingsScreenTest {
         onNodeWithText("终端").performClick()
         onNodeWithText("Shift+Insert 粘贴").assertDoesNotExist()
     }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun connectionConflictPolicyIsLabelledPending() = runComposeUiTest {
+        setContent { BareZenTheme { SettingsScreen(model()) } }
+        onNodeWithText("连接").performClick()
+        onNodeWithText("（待文件传输接入后生效）", substring = true).assertExists()
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun connectionHideAddressesBindsToModel() = runComposeUiTest {
+        val m = model()
+        setContent { BareZenTheme { SettingsScreen(m) } }
+        onNodeWithText("连接").performClick()
+        onNodeWithText("隐藏服务器地址").assertIsDisplayed()
+    }
 }
