@@ -138,14 +138,10 @@ fun SettingsScreen(model: AppModel) {
 }
 
 /**
- * 以下 6 个分类 section 为 Task 6 的**过渡空壳**（真实内容由 Task 7–12 逐个替换）。
+ * 以下 5 个分类 section 为 Task 6 的**过渡空壳**（真实内容由 Task 8–12 逐个替换）。
  * 定义为文件私有，避免与后续任务在独立文件里的同名公开函数冲突。
+ * 外观（AppearanceSettingsSection）已由 Task 7 在独立文件实现，故此处不再保留空壳。
  */
-@Composable
-private fun AppearanceSettingsSection(settings: SettingsModel) {
-    SettingsSectionScaffold("外观") {}
-}
-
 @Composable
 private fun TerminalSettingsSection(settings: SettingsModel) {
     SettingsSectionScaffold("终端") {}

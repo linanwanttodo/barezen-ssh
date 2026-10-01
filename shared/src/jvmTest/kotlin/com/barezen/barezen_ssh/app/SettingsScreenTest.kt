@@ -3,12 +3,14 @@ package com.barezen.barezen_ssh.app
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
 import com.barezen.barezen_ssh.ui.screens.SettingsScreen
 import com.barezen.barezen_ssh.ui.theme.BareZenTheme
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
 class SettingsScreenTest {
 
@@ -38,5 +40,26 @@ class SettingsScreenTest {
         onNodeWithText("智能助手属 M5，尚未接入。").assertIsDisplayed()
         onNodeWithText("凭据").performClick()
         onNodeWithText("凭据库属 M3，尚未接入。").assertIsDisplayed()
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun appearanceLightThemeOptionIsDisabled() = runComposeUiTest {
+        setContent { BareZenTheme { SettingsScreen(model()) } }
+        onNodeWithText("浅色（未实现）").assertIsNotEnabled()
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun appearanceScaleChangeUpdatesModel() = runComposeUiTest {
+        val m = model()
+        setContent { BareZenTheme { SettingsScreen(m) } }
+        onNodeWithText("125%").performClick()
+        assertEquals(1.25f, m.settings.settings.uiScale)
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun appearanceSingleValueRowsAreStaticText() = runComposeUiTest {
+        setContent { BareZenTheme { SettingsScreen(model()) } }
+        onNodeWithText("Noto Sans SC").assertIsDisplayed()
+        onNodeWithText("随包分发，暂无可选项").assertIsDisplayed()
     }
 }

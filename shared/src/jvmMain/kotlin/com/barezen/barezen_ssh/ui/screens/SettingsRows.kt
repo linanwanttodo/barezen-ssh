@@ -69,7 +69,7 @@ fun ToggleRow(
     }
 }
 
-/** 分段选择。`enabled=false` 用于「未实现」的选项（如浅色主题）。 */
+/** 分段选择。`enabled=false` 整体禁用；`disabledIndices` 用于「未实现」的个别选项（如浅色主题）。 */
 @Composable
 fun ChoiceRow(
     title: String,
@@ -77,16 +77,19 @@ fun ChoiceRow(
     options: List<String>,
     selectedIndex: Int,
     enabled: Boolean = true,
+    disabledIndices: Set<Int> = emptySet(),
     onSelect: (Int) -> Unit,
 ) {
     RowShell(title, desc) {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             options.forEachIndexed { i, label ->
+                // 禁用项：可见文案但不可点（不造假选项）
+                val itemEnabled = enabled && i !in disabledIndices
                 val selected = i == selectedIndex
                 if (selected) {
-                    Button(onClick = { onSelect(i) }, enabled = enabled) { Text(label, fontSize = 12.sp) }
+                    Button(onClick = { onSelect(i) }, enabled = itemEnabled) { Text(label, fontSize = 12.sp) }
                 } else {
-                    OutlinedButton(onClick = { onSelect(i) }, enabled = enabled) { Text(label, fontSize = 12.sp) }
+                    OutlinedButton(onClick = { onSelect(i) }, enabled = itemEnabled) { Text(label, fontSize = 12.sp) }
                 }
             }
         }
