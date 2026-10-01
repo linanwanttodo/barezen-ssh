@@ -4,6 +4,7 @@ package com.barezen.barezen_ssh.app
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
@@ -116,5 +117,13 @@ class SettingsScreenTest {
         onNodeWithText("存储").performClick()
         onNodeWithText(".barezen", substring = true).assertIsDisplayed()
         onNodeWithText("打开目录").assertIsDisplayed()
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun updateCheckDisabledWhenRepoBlank() = runComposeUiTest {
+        setContent { BareZenTheme { SettingsScreen(model()) } }
+        onNodeWithText("更新").performClick()
+        onNodeWithText("请先填写更新源").assertIsDisplayed()
+        onNodeWithTag("update-check-button").assertIsNotEnabled()
     }
 }
