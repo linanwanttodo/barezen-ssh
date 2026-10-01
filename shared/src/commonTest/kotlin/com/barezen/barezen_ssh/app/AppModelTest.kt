@@ -1,6 +1,7 @@
 package com.barezen.barezen_ssh.app
 
 import com.barezen.barezen_ssh.servers.InMemoryServerRepository
+import com.barezen.barezen_ssh.settings.NoopSettingsRepository
 import com.barezen.barezen_ssh.servers.Server
 import com.barezen.barezen_ssh.ssh.AuthMethod
 import com.barezen.barezen_ssh.ssh.ConnectRequest
@@ -25,6 +26,7 @@ class AppModelTest {
         repo = InMemoryServerRepository(listOf(server)),
         ssh = client,
         scope = CoroutineScope(Dispatchers.Unconfined),
+        settings = SettingsModel(NoopSettingsRepository()).also { it.load() },
     )
 
     @Test fun connectHappyPathEndsConnected() = runBlocking {

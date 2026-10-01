@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.v2.runComposeUiTest
 import com.barezen.barezen_ssh.servers.InMemoryServerRepository
 import com.barezen.barezen_ssh.servers.Server
+import com.barezen.barezen_ssh.settings.NoopSettingsRepository
 import com.barezen.barezen_ssh.ssh.ConnectionState
 import com.barezen.barezen_ssh.ssh.ConnectRequest
 import com.barezen.barezen_ssh.ssh.SshClient
@@ -25,6 +26,7 @@ class TerminalScreenTest {
         repo = InMemoryServerRepository(listOf(Server("1", "web-01", "10.0.0.11", 22, "root"))),
         ssh = object : SshClient { override suspend fun connect(request: ConnectRequest) = error("unused") },
         scope = CoroutineScope(Dispatchers.Unconfined),
+        settings = SettingsModel(NoopSettingsRepository()).also { it.load() },
     ).apply { applyConnectionForTest(state) }
 
     @OptIn(ExperimentalTestApi::class)

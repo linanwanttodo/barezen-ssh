@@ -8,6 +8,7 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 
 internal val BareZenDarkColors = darkColorScheme(
@@ -46,10 +47,17 @@ val BareZenShapes = Shapes(
     small = RoundedCornerShape(4.dp),
 )
 
+/**
+ * @param darkTheme 是否使用深色板。**目前只有深色板**：传 false 仍是深色，
+ *   浅色主题落地时只改这一个分支（见设计 §9.1）。
+ */
 @Composable
-fun BareZenTheme(content: @Composable () -> Unit) {
+fun BareZenTheme(darkTheme: Boolean = true, content: @Composable () -> Unit) {
+    // 浅色板尚未实现；保留形参与分支，落地时只改这里
+    @Suppress("UNUSED_EXPRESSION")
+    val scheme = if (darkTheme) BareZenDarkColors else BareZenDarkColors
     MaterialTheme(
-        colorScheme = BareZenDarkColors,
+        colorScheme = scheme,
         typography = BareZenTypography,
         shapes = BareZenShapes,
     ) {
@@ -58,3 +66,10 @@ fun BareZenTheme(content: @Composable () -> Unit) {
         ) { content() }
     }
 }
+
+/**
+ * 把界面缩放只作用在 density 上；fontScale 原样保留（否则字号被缩放两次）。
+ * 纯函数：便于在测试里断言，不依赖 Compose 运行环境（设计 §15 R9）。
+ */
+fun scaledDensity(base: Density, uiScale: Float): Density =
+    Density(base.density * uiScale, base.fontScale)

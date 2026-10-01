@@ -1,6 +1,7 @@
 package com.barezen.barezen_ssh.app
 
 import com.barezen.barezen_ssh.servers.FileServerRepository
+import com.barezen.barezen_ssh.settings.FileSettingsRepository
 import com.barezen.barezen_ssh.ssh.JvmSshClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -10,4 +11,5 @@ fun AppModel.Companion.real(): AppModel = AppModel(
     repo = FileServerRepository(),
     ssh = JvmSshClient(),
     scope = CoroutineScope(Dispatchers.Default),
+    settings = SettingsModel(FileSettingsRepository()).also { it.load() },
 )

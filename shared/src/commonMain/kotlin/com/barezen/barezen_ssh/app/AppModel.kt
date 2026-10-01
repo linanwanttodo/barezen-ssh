@@ -11,6 +11,7 @@ import com.barezen.barezen_ssh.ssh.SshSession
 import com.barezen.barezen_ssh.servers.Server
 import com.barezen.barezen_ssh.servers.ServerRepository
 import com.barezen.barezen_ssh.servers.filterServers
+import com.barezen.barezen_ssh.settings.NoopSettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -21,6 +22,7 @@ class AppModel(
     val repo: ServerRepository,
     val ssh: SshClient,
     private val scope: CoroutineScope,
+    val settings: SettingsModel,
 ) {
     var current: Destination by mutableStateOf(Destination.SERVERS)
         private set
@@ -116,6 +118,7 @@ class AppModel(
             },
             ssh = object : SshClient { override suspend fun connect(request: ConnectRequest) = error("unused") },
             scope = CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined),
+            settings = SettingsModel(NoopSettingsRepository()).also { it.load() },
         )
     }
 }

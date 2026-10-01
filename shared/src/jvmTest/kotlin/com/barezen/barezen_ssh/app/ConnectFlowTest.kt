@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
 import com.barezen.barezen_ssh.servers.InMemoryServerRepository
 import com.barezen.barezen_ssh.servers.Server
+import com.barezen.barezen_ssh.settings.NoopSettingsRepository
 import com.barezen.barezen_ssh.ssh.AuthMethod
 import com.barezen.barezen_ssh.ssh.ConnectRequest
 import com.barezen.barezen_ssh.ssh.ConnectionState
@@ -31,6 +32,7 @@ class ConnectFlowTest {
         repo = InMemoryServerRepository(listOf(web01)),
         ssh = ssh,
         scope = CoroutineScope(Dispatchers.Unconfined),
+        settings = SettingsModel(NoopSettingsRepository()).also { it.load() },
     )
 
     private val hangingSsh = object : SshClient {
