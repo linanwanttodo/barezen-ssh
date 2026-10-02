@@ -153,6 +153,16 @@ T-3 已交付并独立复核（`42ec347`，456 用例 / 0 失败）。
 2. **T-4 多标签批准开工，但强制 spec-first**：先产出 `docs/superpowers/specs/2026-10-02-session-registry-design.md`（SessionRegistry 接口、AppModel 单会话字段迁移路径、*Host 接线层改造、断开/关闭语义、兼容策略），**spec 获批准后**再领实施授权；未批不动代码。
 3. 小项池（JNA+Windows 桥、亮色 Warning 变体、打包分发）不阻塞 T-4，由主代理择机批量派发。
 
+## 3.3 T-4 spec 批准与实施决策（2026-10-02 深夜）
+
+spec `f0c6b1c`（session-registry-design.md，543 行）**批准**，评审结论：现状盘点完整、语义矩阵清晰、四刀可独立回滚。四项拍板：
+
+1. **上限 8 批准**：每会话一个 SSHClient + keepalive 线程，桌面单用户可承受；达限拒绝不淘汰（不静默杀会话）。提高上限只改常量。
+2. **隧道采纳方案 A**：`ForwardManager` 所有权上移 `SessionResources`——切走保持、关闭释放、不保活；作为独立一刀提交（用户切标签不得断隧道，体验红线）。
+3. **终端 widget 先方案 B**：切标签重挂（新 shell、滚动缓冲丢失），UI 必须明示该语义不假装保留；SwingPanel 多实例 interop（方案 A）列入小项池 spike，不阻塞 T-4。
+4. **Ssh.kt 零改动判断确认**：`SessionId` 归 app 层，registry 侧包装即可；保留例外条款——实施中确需动接口必须先报批。
+5. **上游文档 emoji 清理**：批准单独 docs 提交清理 `2026-09-25-ui-redesign-requirements.md` 的 `✅/📋` 标记，连同本 spec 第 24 行残留的 `📋M4`（引用记号改为「M4」）。纯格式，不动语义。
+
 ## 4. 历史决策记录（不要重开讨论）
 
 1. 语言混编（2026-10-02 用户拍板）：Java 管解析/JNA/库包装，Kotlin 管 UI/状态。
