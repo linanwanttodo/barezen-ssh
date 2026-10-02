@@ -89,3 +89,15 @@ fun AppModel.applyConnectionForTest(state: ConnectionState) {
 
 /** 注入状态时使用的占位认证：状态由 client 决定，认证内容不参与任何分支。 */
 private val TEST_AUTH: AuthMethod = AuthMethod.PrivateKey("test-only")
+/**
+ * 测试用多会话客户端：按调用顺序依次返回注入的会话（第 n 次建连给第 n 条）。
+ *
+ * 用于覆盖"多会话并存、切换活动会话"的接线行为——单会话的 [ControllableSshClient]
+ * 无法表达两条会话各有独立底层连接这一前提。
+ */
+class QueuedSshClient(private val sessions: List<SshSession>) : SshClient {
+    var calls: Int = 0
+        private set
+
+    override suspend fun connect(request: ConnectRequest): SshSession = sessions[calls++]
+}

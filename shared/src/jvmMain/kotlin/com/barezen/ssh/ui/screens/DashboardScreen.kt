@@ -43,7 +43,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.barezen.ssh.app.AppModel
-import com.barezen.ssh.ssh.ConnectionState
 import com.barezen.ssh.ssh.metrics.DiskUsage
 import com.barezen.ssh.ssh.metrics.MetricsCollector
 import com.barezen.ssh.ssh.metrics.MetricsSnapshot
@@ -127,18 +126,21 @@ fun DashboardScreen(
 }
 
 /**
- * AppShell 接线层：跟随连接状态创建/销毁 [MetricsCollector]（轮询经 SshSession.exec 采集），
- * 并把快照交给 [DashboardScreen]。会话切换（重连）会经过 Connecting，收集器随之重建。
+ * AppShell 接线层：跟随**活动会话**创建/销毁 [MetricsCollector]（轮询经 SshSession.exec 采集），
+ * 并把快照交给 [DashboardScreen]。
+ *
+ * key 用会话 id 而非布尔 connected：两条会话**同时 Connected** 时布尔值恒为 true，
+ * 只以它为 key 的 LaunchedEffect 不会重跑，切换活动会话后仍会显示旧会话的指标。
  */
 @Composable
 fun DashboardHost(model: AppModel) {
-    val connected = model.connection is ConnectionState.Connected
+    val active = model.registry.active
     val scope = rememberCoroutineScope()
     var collector by remember { mutableStateOf<MetricsCollector?>(null) }
 
-    LaunchedEffect(connected) {
-        val session = model.shellSession
-        if (connected && session != null) {
+    LaunchedEffect(active?.id) {
+        val session = active?.session
+        if (active != null && session != null) {
             val c = MetricsCollector(session)
             collector = c
             c.start(scope)
@@ -147,12 +149,12 @@ fun DashboardHost(model: AppModel) {
             collector = null
         }
     }
-    DisposableEffect(Unit) {
+    DisposableEffect(active?.id) {
         onDispose { collector?.stop() }
     }
 
     val snapshot = collector?.snapshot?.collectAsState()?.value
-    DashboardScreen(snapshot = snapshot, connected = connected) { collector?.refresh() }
+    DashboardScreen(snapshot = snapshot, connected = active != null) { collector?.refresh() }
 }
 
 // ---- 指标卡 ----

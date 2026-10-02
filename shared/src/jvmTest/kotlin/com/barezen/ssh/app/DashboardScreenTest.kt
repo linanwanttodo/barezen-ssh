@@ -124,4 +124,45 @@ class DashboardScreenTest {
         onNodeWithText("1 天 2 小时").assertIsDisplayed()
         onNodeWithText("33%").assertIsDisplayed()
     }
+
+    // ---- 会话切换：收集器必须跟随"活动会话"，而不是跟随布尔 connected ----
+
+    /**
+     * 先组合（活动会话为 A），再切换到已连接的 B：仪表盘必须改显 B 的数据。
+     *
+     * 这条锁定接线层以 SessionId（而非布尔 connected）为 key——两条会话**同时 Connected** 时
+     * 布尔值 true 不变，只以它为 key 的 LaunchedEffect 不会重跑，切换后仍显示 A 的指标。
+     * 故必须在组合之后再切换，否则测不到该缺陷。
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun dashboardFollowsActiveSessionOnSwitch() = runComposeUiTest {
+        val a = com.barezen.ssh.servers.Server("srv-a", "web-01", "127.0.0.1", 22, "test")
+        val b = com.barezen.ssh.servers.Server("srv-b", "db-01", "127.0.0.1", 22, "test")
+        val sessionA = FakeSshSession { cmd -> ExecResult(0, if (cmd == "cat /proc/loadavg") "0.52 0.58 0.59 1/412 8123" else "", "") }
+        val sessionB = FakeSshSession { cmd -> ExecResult(0, if (cmd == "cat /proc/loadavg") "9.99 9.99 9.99 1/412 8123" else "", "") }
+        val model = AppModel(
+            repo = InMemoryServerRepository(listOf(a, b)),
+            ssh = QueuedSshClient(listOf(sessionA, sessionB)),
+            scope = CoroutineScope(Dispatchers.Unconfined),
+            settings = SettingsModel(NoopSettingsRepository()).also { it.load() },
+        )
+        model.startConnect(a, AuthMethod.Password("x"))
+        model.navigate(Destination.DASHBOARD)
+        setContent { BareZenTheme { BareZenAppContent(model) } }
+        waitUntil(timeoutMillis = 10_000) {
+            onAllNodesWithText("0.52").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        // 组合之后：新建第二条会话并切为活动会话（A 仍处 Connected）
+        model.startConnect(b, AuthMethod.Password("x"))
+        model.navigate(Destination.DASHBOARD)
+
+        waitUntil(timeoutMillis = 10_000) {
+            onAllNodesWithText("9.99").fetchSemanticsNodes().isNotEmpty()
+        }
+        assertTrue(
+            onAllNodesWithText("0.52").fetchSemanticsNodes().isEmpty(),
+            "切换到活动会话 B 后不得仍显示会话 A 的指标",
+        )
+    }
 }
