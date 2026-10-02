@@ -163,6 +163,58 @@ spec `f0c6b1c`（session-registry-design.md，543 行）**批准**，评审结�
 4. **Ssh.kt 零改动判断确认**：`SessionId` 归 app 层，registry 侧包装即可；保留例外条款——实施中确需动接口必须先报批。
 5. **上游文档 emoji 清理**：批准单独 docs 提交清理 `2026-09-25-ui-redesign-requirements.md` 的 `✅/📋` 标记，连同本 spec 第 24 行残留的 `📋M4`（引用记号改为「M4」）。纯格式，不动语义。
 
+## 3.4 T-4 会话注册表与多标签实施（2026-10-02 深夜，分批提交）
+
+spec `f0c6b1c` 批准后按 §6 分刀推进，每刀独立提交、门禁全绿。
+
+| 刀 | 提交 | 内容 | 门禁 |
+|---|---|---|---|
+| 1 | `a601fc8` | `SessionRegistry`（commonMain：`SessionId`/`SessionSnapshot`/`SessionLimitException`，上限 8 达限拒绝不淘汰）；`AppModel.connection`/`shellSession` 改**只读派生投影**；四个生命周期方法委托 registry。**UI 零改动** | 463/0 |
+| 2 | `03fd0ce` | `DashboardHost` 改按 `registry.active?.id` 订阅（key 由布尔改会话 id） | 464/0 |
+| 3 | `8029970` | FilesHost/PortsHost/TerminalScreen/ServersScreen/ConnectFlowOverlays 全部迁移；`reportShellStartFailed` 改携 `SessionId`；`connectedId` -> `connectedIds`。**全局防重入守卫按 spec §2.3 废除**（允许并发连不同服务器） | 482/0 |
+| 4 | `eff498b` | 隧道所有权上移到会话：commonMain `SessionScoped` 接口 + jvmMain `JvmSessionResources`，registry 经 `resourcesFactory` 注入点持有，6 处释放点。**切标签不再断隧道**（用户红线） | 495/0 |
+| 5 | `2219855` | 多标签条（渲染全部会话、`selected` 语义、点击切换、关闭按钮、中键关闭、`+` 跳服务器列表）+ 重挂一次性提示（§4.4 红线：不保活，切标签重挂 = 新 shell，滚动缓冲丢失必须明示） | 508/0 |
+
+### 3.4.1 实施中触及的既有测试变更（均经裁决，非静默）
+
+1. **`AppModelTest.secondConnectIgnoredWhileConnecting` 改写**（刀3）：该用例第二次连接的目标是**不同服务器**，
+   断言的正是 spec §2.3 明文废除的「全局互斥」；与多标签（Q3 已拍板）互斥且无中间态。
+   经裁决按选项 A 处理：**保留原三项意图**（Connecting 态不被覆盖 / 未完成不预存会话 / 放行后成对一致），
+   并把「不同服务器可并发建连」**单独新增一例** `concurrentConnectToDifferentServersIsAllowed` 显式锁定新契约。
+   spec §7.4 已预先登记该更新属第 3/4 刀范围。
+2. **`TerminalScreenTest` 两例删除**（刀1）：`connectedShowsStatusBarWithLatency` 与
+   `statusBarShowsMetricSlotsWithoutFakeValues` 断言的是「Connected 且 `shellSession == null`」下的渲染，
+   该状态在新不变量（Connected 必有 session）下**不可表达**；一旦携带真会话就会挂真 `TerminalView`（SwingPanel interop），
+   headless 下必然抛 `LocalInteropContainer not provided`。且 `ConnectionStatusBar` 为 private 且内容全由
+   `is Connected` 包住，无法脱离整屏单独组合——**两条不变量在本环境确实不可验证**。
+   按"宁可诚实红，不要削弱绿"处理：**删除而非改成恒真断言**，原位置留注释，**待有显示环境补验**。
+3. 既有 `ConnectFlowTest`/`AppModelTest` 其余断言、`ServersScreenTest`/`SessionRegistryTest` 等**一字未改**。
+4. **`TerminalScreenTest.tabStripHoldsDisabledPlaceholderButtons` 改名 + 断言替换**（刀5）：原用例锁定的是
+   M4 占位（" + " 禁用 + contentDescription「多标签（M4 占位）」）；刀5 落地后 "+" **启用**且描述改「新建终端」，
+   占位断言与新实现互斥。按选项 A 处理：改名 `tabStripPlusEnabledAssistantStillPlaceholder`，
+   保留原意图中仍成立的部分（「助手」按钮仍为占位禁用），禁用断言替换为 `assertIsEnabled`。
+5. **`MultiSessionTabTest.middleClickClosesTab` 注入方式修正**（刀5，新文件内部）：CMP 1.12.1 ui-test 的
+   `press` 从光标当前位置注入、`performMouseInput` 不自动移到节点中心（实测事件落在窗口原点，探针验证），
+   press 前补 `moveTo(center)`。断言与被锁行为未动，纯注入机制修正。
+
+### 3.4.2 刀4/刀5 的反向验证（防"恒真断言"）
+
+刀4：`PortsHostTunnelLifetimeTest` 两例（切标签隧道不断 / 关闭标签释放隧道）在**把 PortsHost 逐字还原成刀3 形态**后
+**双双转红**（`ComposeTimeoutException`），还原为刀4 实现后转绿——证明该用例确实在锁红线，不是恒真断言。
+
+刀5：`MultiSessionTabTest` 13 例在**把 TerminalScreen 逐字还原成刀4 形态（`eff498b`）后 12 例转红**
+（唯一不红的 `singleSessionNeverShowsRestartNotice` 属边界钉子：旧 UI 无重挂提示机制，单会话自然无提示；
+其作用是锁刀5 之后「单会话不出提示」的边界），还原为刀5 实现后全绿。
+
+### 3.4.3 已知未完成项（不假装已做）
+
+| 项 | 说明 |
+|---|---|
+| 关闭标签的"SftpModel 进行中传输"确认框（spec §4.5） | **未实现**：`SftpModel` 归 FilesHost 私有持有，要检测需把它也上移到 `SessionScoped`，属新的所有权变更，不宜塞进 UI 刀 |
+| `FilesHost` 仍由 Host 持 `SftpModel` | **切标签会取消进行中的传输**，语义与刀3 前一致；是否上移待单独裁决 |
+| 非活动会话远端断线探测（spec §9 R1） | 本轮明确不做，仍为技术债 |
+| 后台会话的指标/终端 widget | 按 spec §2.2「单活动前台 + 多后台连接保留」：后台只保持 SSH 连接，不轮询、不渲染 |
+
 ## 4. 历史决策记录（不要重开讨论）
 
 1. 语言混编（2026-10-02 用户拍板）：Java 管解析/JNA/库包装，Kotlin 管 UI/状态。
