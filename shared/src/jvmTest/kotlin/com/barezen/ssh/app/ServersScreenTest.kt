@@ -34,7 +34,7 @@ class ServersScreenTest {
                 Server("2", "db-01", "10.0.0.12", 22, "root", listOf("生产", "数据库")),
             )
         ),
-        ssh = object : SshClient { override suspend fun connect(request: ConnectRequest) = error("unused") },
+        ssh = ControllableSshClient(),
         scope = CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined),
         settings = SettingsModel(NoopSettingsRepository()).also { it.load() },
     )

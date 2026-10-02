@@ -16,15 +16,12 @@ import com.barezen.ssh.servers.StoredAuth
 import com.barezen.ssh.servers.filterServers
 import com.barezen.ssh.settings.NoopSettingsRepository
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
-import kotlin.coroutines.cancellation.CancellationException
 import kotlin.jvm.JvmName
 
 class AppModel(
     val repo: ServerRepository,
     val ssh: SshClient,
-    private val scope: CoroutineScope,
+    scope: CoroutineScope,
     val settings: SettingsModel,
     /**
      * 凭据解析端口（jvmMain 钥匙串实现由壳层注入）。
@@ -36,13 +33,21 @@ class AppModel(
         private set
     var servers: List<Server> by mutableStateOf(repo.list())
         private set
-    var connection: ConnectionState by mutableStateOf(ConnectionState.Disconnected)
-        private set
+
+    /**
+     * 会话注册表：多会话的唯一真相源。连接生命周期只在这里被改写——
+     * 下面两个属性是它的**只读派生投影**，迁移期语义与单会话时代逐字等价。
+     */
+    val registry: SessionRegistry = SessionRegistry(ssh, scope)
+
+    /** 活动会话的连接状态（投影；无活动会话即未连接）。 */
+    val connection: ConnectionState get() = registry.active?.state ?: ConnectionState.Disconnected
+
+    /** 活动会话的 shell 会话（投影）；凡丢弃它的路径必须经 registry 关闭。 */
+    val shellSession: SshSession? get() = registry.active?.session
+
     /** 连接确认对话框的目标服务器（null = 不弹）。 */
     var pendingConnect: Server? by mutableStateOf(null)
-        private set
-    /** 当前活动 shell 会话；凡丢弃它的路径必须先 close（连接失败/重连/断开/收口）。 */
-    var shellSession: SshSession? = null
         private set
     var query: String by mutableStateOf("")
     var selectedTag: String? by mutableStateOf(null)
@@ -104,38 +109,26 @@ class AppModel(
         startConnect(server, auth)
     }
 
-    /** 进行中的连接协程；取消连接用（设计包连接中对话框「取消」）。 */
-    private var connectJob: Job? = null
-
+    /**
+     * 建连：委托注册表新建一条会话并置为前台。
+     *
+     * 防重入：建连进行中忽略新连接请求——并发协程会互相丢弃会话（孤儿 SSH 连接+keep-alive 线程），
+     * 且状态/会话两次赋值可能被末写者覆盖成不一致。多标签时代该守卫退化为 per-SessionId
+     * （同时连不同服务器应当被允许），但本刀保持单会话行为逐字不变。
+     */
     fun startConnect(server: Server, auth: AuthMethod) {
-        // 防重入：建连进行中忽略新请求——并发协程会互相丢弃会话（孤儿 SSH 连接+keep-alive 线程），
-        // 且 shellSession/connection 两次赋值可能被末写者覆盖成不一致
         if (connection is ConnectionState.Connecting) return
-        connection = ConnectionState.Connecting(server)
-        connectJob = scope.launch {
-            try {
-                // 重连收口：旧会话先关再弃（否则连接/keep-alive 线程累积）
-                shellSession?.close()
-                shellSession = null
-                val session = ssh.connect(ConnectRequest(server.host, server.port, server.user, auth))
-                shellSession = session
-                connection = ConnectionState.Connected(server, session.pingMs())
-                current = Destination.TERMINAL
-            } catch (e: CancellationException) {
-                throw e                       // 取消不落失败态：由 cancelConnect 置 Disconnected
-            } catch (e: Exception) {
-                connection = ConnectionState.Failed(server, e.message ?: e.toString())
-            } finally {
-                connectJob = null
-            }
+        val id = registry.connect(server, auth)
+        // 导航时机与改造前一致：只有建连**成功**才跳终端页。
+        // 连接中/失败时停留在原页，覆盖层（ConnectFlowOverlays 依赖 current != TERMINAL）照常呈现。
+        if (registry.sessions.firstOrNull { it.id == id }?.state is ConnectionState.Connected) {
+            current = Destination.TERMINAL
         }
     }
 
-    /** 取消进行中的连接：掐协程并回落 Disconnected（旧会话已在协程里收口，无孤儿）。 */
+    /** 取消进行中的连接：掐掉在途建连协程并移除该会话，投影回落未连接。 */
     fun cancelConnect() {
-        connectJob?.cancel()
-        connectJob = null
-        connection = ConnectionState.Disconnected
+        registry.activeId?.let { registry.cancel(it) }
     }
 
     /** 启动时连接：只对「私钥认证」且 id 仍存在的服务器生效。
@@ -147,21 +140,21 @@ class AppModel(
         startConnect(server, AuthMethod.PrivateKey((server.auth as StoredAuth.Key).keyPath))
     }
 
+    /** 断开活动会话（会话仍在注册表中，标签位保留）。 */
     fun disconnect() {
-        shellSession?.close()
-        shellSession = null
-        connection = ConnectionState.Disconnected
+        registry.activeId?.let { registry.disconnect(it) }
     }
 
-    /** TerminalView 接线处回传的 shell 启动失败：关会话并置失败态（重试走 requestConnect）。 */
+    /**
+     * TerminalView 接线处回传的 shell 启动失败：关掉该会话的底层连接并就地把状态落为失败
+     * （重试走 requestConnect）。不新建会话，故失败信息与 id/title 都挂在原会话上。
+     *
+     * 本刀签名不变（server, message）——单会话下与活动会话一一对应；改携 SessionId 是第 3 刀的事。
+     * 失败态里的服务器取自注册表自存的会话，避免调用方传入的 server 与之脱节。
+     */
     fun reportShellStartFailed(server: Server, message: String) {
-        shellSession?.close()
-        shellSession = null
-        connection = ConnectionState.Failed(server, message)
+        registry.activeId?.let { registry.fail(it, message) }
     }
-
-    /** 测试专用：直接套用连接状态（生产路径只经 startConnect / disconnect / reportShellStartFailed）。 */
-    fun applyConnectionForTest(state: ConnectionState) { connection = state }
 
     companion object {
         fun forUiTest(): AppModel = AppModel(
