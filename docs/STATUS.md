@@ -72,11 +72,40 @@
 ## 2. 未完成（按优先级，任务书见 ROADMAP.md）
 
 1. **T-1 剩余：壳层注入 `KeychainCredentialResolver.platformDefault()` 并真机验证**：端口、适配器、UI、测试均已就绪；`AppShell` 目前仍用默认 `NoopCredentialResolver`（凭据不落盘），接上工厂即启用，属一行改动，与真机验证一并在 T-2 完成。
-2. **T-2 VPS 真机冒烟**：指标/转发/SFTP 在真实服务器上的验证（待用户提供凭据）。
+2. **T-2 VPS 真机冒烟**：SFTP/指标/本地转发/远端转发数据通路已全部通过（见 1.11）；仅剩下述一项受网络拓扑阻塞。
+   - **远端转发数据通路无法在本环境验证**：本机公网出口 IP 经实测**就是该 VPS 自身**（`curl api.ipify.org` = 158.101.11.31，与 `SSH_CLIENT` 一致），VPS 无法 TCP 回连本机 18080；已证 VPS→其自身 127.0.0.1 通路完好（对照试验通过），故属链路不可达而非产品缺陷。需另找一台与开发机互通的服务器复验。
 3. **T-3 SFTP 删除/重命名 UI**：`SftpFs.delete/rename` 能力已备，无界面入口。
 4. **T-4 P5 多标签/分屏**：会话注册表重构 + AppShell 改造。
 5. **T-5 P6 AI 运维侧栏**：待用户决策。
 6. 小项池：动态转发 SOCKS5（sshj 无现成实现）、JNA 依赖补 Windows 真实桥、亮色板 Warning 前景变体、自动打包分发。
+
+## 1.11 T-2a 上传假死缺陷 + T-2 剩余冒烟（2026-10-02）
+
+### 1.11.1 T-2a 根因与修复（提交 `445b5c0`）
+
+**根因一句话**：`JvmSftpFs.upload` 对空块执行 `continue` 而不推进 offset，回调持续返回同一个空块 → 死循环空转 100% CPU，表现为「远端已落盘、进程再不返回、无异常无输出」。
+
+| 项 | 内容 |
+|---|---|
+| 定位手段 | 用测试依赖已有 sshd-core + 新增 `sshd-sftp` 子系统写最小复现（先红）；`jstack` 抓到 Test worker 在 `JvmSshClient.kt:258` RUNNABLE，cpu 589s / elapsed 602s |
+| 修复 | 空块是契约违例（约定 null 表示结束），改为 `check(chunk.isNotEmpty())` 快速失败并报出 offset |
+| 反证 | 把修复回退成 `continue` 后新增用例转红（`uploaderRejectsEmptyChunkInsteadOfSpinning`） |
+| 测试增量 | 10 例：10MiB 整块边界上传校验和、非整块对齐上传、空块快速失败、上传循环终止契约、LocalChunkReader 边界 |
+
+**为何此前没暴露**：既有 `FakeSftpFs` 的 upload 以 `nextChunk(offset) ?: break` 终止，与生产实现不同构；`SftpModel` 是 fire-and-forget（`scope.launch`），UI 上"任务卡在进行中"不易与"线程忙等"区分。教训：**fake 必须与生产实现的终止语义同构**。
+
+### 1.11.2 T-2 剩余项真机结果（VPS Ubuntu 24.04，OpenSSH 9.6p1）
+
+| 分组 | 结果 |
+|---|---|
+| 连接/认证/心跳 | 公钥认证 2.8s、pingMs 591ms 全通过 |
+| 交互式 shell | 独立通道回显 `SHELL_OK_42` 通过 |
+| exec 与指标 | 5 条指标命令全部可读且格式可解析；非零退出码、超时置 null 均如实 |
+| SFTP | 上传 10MiB / 200KB、下载 10MiB / 200KB、中文文件名、list、delete、取消进行中上传 全部通过（10MiB 上传修复后通过且校验和一致） |
+| 本地转发 | `18780 -> VPS 127.0.0.1:18080` 取回 `HTTP/1.0 200 OK` 通过；关闭后本机与远端端口均释放 |
+| 远端转发 | 监听建立通过（计数 2）；数据通路受上述拓扑阻塞未能验证 |
+
+**结论**：29 项检查 28 通过，唯一失败项已定位为环境限制而非产品缺陷。
 
 ## 3. 已知问题 / 技术债
 
@@ -92,6 +121,8 @@
 | `FileServerRepository` 缺 `coerceInputValues` | 三处同构持久化契约中唯一例外（仅 `ignoreUnknownKeys`）；旧 JSON 出现未知 `StoredAuth` 判别值时 `list()` 返空并隔离为 `.corrupt-*` | 补 `coerceInputValues = true` 对齐另两处；ROADMAP T-1 注意事项已点名，本轮未授权未做 |
 | 钥匙串子进程无超时 | `CommandRunner` 同步读流无超时，Linux 下 `secret-tool` 弹解锁框可能长期阻塞 | 当前靠「只在 `LaunchedEffect`/协程里调用」规避；后续可加超时与取消 |
 | 无 UI 级删除服务器入口 | `AppModel.removeServer` 已具备（含钥匙串清理）但 ServersScreen 无按钮 | 设计内为 M2 占位；需要时单独排期 |
+| `FakeSftpFs.upload` 与生产实现的终止语义不同构 | fake 用 `nextChunk(offset) ?: break`，生产曾是空块 `continue`，导致缺陷逃过单测 | 已由 T-2a 修复生产侧；fake 侧建议后续补充"空块"负样例 |
+| `SftpModel` 传输为 fire-and-forget | 无完成句柄，调用方无法 await；排查假死时「卡住」与「忙等」难以区分 | T-2a 未改（属接口改进，需评估）；已记入待议 |
 
 ## 4. 历史决策记录（不要重开讨论）
 

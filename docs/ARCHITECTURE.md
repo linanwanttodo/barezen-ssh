@@ -54,7 +54,7 @@ ServersScreen/ConnectDialog -> AppModel.requestConnect -> ConnectDialog 确认
 
 - **exec**：每条命令独立 session channel；有界 join 超时先关通道强制 EOF 再读流（防读流阻塞）；超时/异常 exitCode=null（语义：退出状态不可信）。
 - **并发**：sshj `SSHClient` 非线程安全——`JvmSshSession.execLock` 串行化 exec/pingMs；shell 通道独立。转发 accept 循环与远程转发 pump 在自有守护线程。
-- **SftpFs**：`list/mkdir/delete/rename` + 流式 `download(remotePath, onChunk)` / `upload(remotePath, size, nextChunk)`（32/64KiB 分块，大文件不驻留内存）。
+- **SftpFs**：`list/mkdir/delete/rename` + 流式 `download(remotePath, onChunk)` / `upload(remotePath, size, nextChunk)`（32/64KiB 分块，大文件不驻留内存）。**`nextChunk` 必须以 `null` 表示结束；返回空数组属契约违例，实现须快速失败而非 `continue`**——曾因此空转忙等（真机表现为上传假死），详见 STATUS 1.11。
 - **转发**：LOCAL 经 sshj `LocalPortForwarder`（127.0.0.1 绑定）；REMOTE 经 `RemotePortForwarder.bind` + 自写双向对拷线程；动态（SOCKS5）sshj 0.40 无实现，未提供。
 
 ### 3.3 指标管线
