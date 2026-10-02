@@ -82,6 +82,7 @@
 
 | 项 | 现状 | 处置建议 |
 |---|---|---|
+| **SFTP 大文件上传崩溃（T-2a，最高优先）** | 2026-10-02 真机冒烟：10MB 上传远端完整落盘后 JVM 静默退出（exit 0、无堆栈），两次复现；根因未定（产品代码 vs 冒烟脚手架），转发/下载/中文名/取消等剩余冒烟项被阻塞 | 按 ROADMAP T-2a：嵌入式 sshd 本地最小复现先红后绿；若根因在脚手架只改脚手架并如实报告 |
 | ~~ServersScreen.kt 596 行~~ | 已在 T-1 拆为 ServersScreen/ServersScreenParts/ServerEditDialog 三文件 | 已解决 |
 | `.Trash-0/`（仓库根，未跟踪） | 沙箱 safe-delete 副作用 | 已在本地排除，可手动删除 |
 | sshj 无动态转发 | UI 禁用标注「即将支持」 | 需自写 SOCKS5 accept 循环，成本较高 |
