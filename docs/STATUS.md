@@ -111,7 +111,8 @@
 
 | 项 | 现状 | 处置建议 |
 |---|---|---|
-| **SFTP 大文件上传崩溃（T-2a，最高优先）** | 2026-10-02 真机冒烟：10MB 上传远端完整落盘后 JVM 静默退出（exit 0、无堆栈），两次复现；根因未定（产品代码 vs 冒烟脚手架），转发/下载/中文名/取消等剩余冒烟项被阻塞 | 按 ROADMAP T-2a：嵌入式 sshd 本地最小复现先红后绿；若根因在脚手架只改脚手架并如实报告 |
+| **~~SFTP 大文件上传崩溃（T-2a）~~** | 已解决（`445b5c0`）：根因为 `JvmSftpFs.upload` 空块 `continue` 不推进 offset 造成 100% CPU 忙等（jstack 实证 589s CPU/602s 挂钟）；修复为 `check` 快速失败，嵌入式 sshd + sshd-sftp 本地复现先红后绿，含反证 | 已关闭；fake 语义同构教训见下行 |
+| **远端转发数据通路未验证** | 2026-10-02 真机冒烟：监听建立通过；但开发机公网出口即该 VPS（经它出网），VPS 无法 TCP 回连开发机，最后一跳链路不可达——环境限制非产品缺陷（对照试验：VPS 本机 curl 自建 sentinel 成功，证明 SSH 通道与转发前半段是好的） | 待有一台与开发机互通的服务器时补验；ROADMAP T-2 遗留项 |
 | ~~ServersScreen.kt 596 行~~ | 已在 T-1 拆为 ServersScreen/ServersScreenParts/ServerEditDialog 三文件 | 已解决 |
 | `.Trash-0/`（仓库根，未跟踪） | 沙箱 safe-delete 副作用 | 已在本地排除，可手动删除 |
 | sshj 无动态转发 | UI 禁用标注「即将支持」 | 需自写 SOCKS5 accept 循环，成本较高 |
@@ -122,7 +123,14 @@
 | 钥匙串子进程无超时 | `CommandRunner` 同步读流无超时，Linux 下 `secret-tool` 弹解锁框可能长期阻塞 | 当前靠「只在 `LaunchedEffect`/协程里调用」规避；后续可加超时与取消 |
 | 无 UI 级删除服务器入口 | `AppModel.removeServer` 已具备（含钥匙串清理）但 ServersScreen 无按钮 | 设计内为 M2 占位；需要时单独排期 |
 | `FakeSftpFs.upload` 与生产实现的终止语义不同构 | fake 用 `nextChunk(offset) ?: break`，生产曾是空块 `continue`，导致缺陷逃过单测 | 已由 T-2a 修复生产侧；fake 侧建议后续补充"空块"负样例 |
-| `SftpModel` 传输为 fire-and-forget | 无完成句柄，调用方无法 await；排查假死时「卡住」与「忙等」难以区分 | T-2a 未改（属接口改进，需评估）；已记入待议 |
+| `SftpModel` 传输为 fire-and-forget | 无完成句柄，调用方无法 await；排查假死时「卡住」与「忙等」难以区分 | 已决策（2026-10-02）：随 T-3 同批补完成句柄（`awaitCompletion`/Deferred 语义，接口改进走 Ssh.kt 外的 sftp 包内） |
+
+## 3.1 决策追加（2026-10-02 晚，T-2a/T-2 收口）
+
+1. **KeychainCredentialResolver 立即接线**：替换 AppShell 的 `NoopCredentialResolver` 注入（当前凭据不落盘，T-1 功能等于死代码）；接受在无钥匙串会话的环境不可真机验证，真机验证项挂到用户桌面机首次运行。
+2. **SftpModel 完成句柄**：随 T-3 同批实现。
+3. **远端转发数据通路**：环境受限（开发机经 VPS 出网），待互通服务器补验，非产品缺陷。
+4. **T-3 授权**：sftp 包（kotlin+java+fake）与 FilesScreen.kt，Ssh.kt/JvmSshClient.kt 禁改（T-2a 已关闭该范围）。
 
 ## 4. 历史决策记录（不要重开讨论）
 
