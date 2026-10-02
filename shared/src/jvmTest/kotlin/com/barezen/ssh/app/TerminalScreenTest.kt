@@ -3,6 +3,7 @@ package com.barezen.ssh.app
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -50,11 +51,12 @@ class TerminalScreenTest {
     // 由 T-4 终态在有显示环境下补验，不以恒真/削弱断言替代。
 
     @OptIn(ExperimentalTestApi::class)
-    @Test fun tabStripHoldsDisabledPlaceholderButtons() = runComposeUiTest {
+    @Test fun tabStripPlusEnabledAssistantStillPlaceholder() = runComposeUiTest {
         val m = model(ConnectionState.Disconnected)
         setContent { BareZenTheme { TerminalScreen(m) } }
-        // 「+」按 GREEN 指定走 IconButton 图标语义 → 断 contentDescription（见报告）
-        onNodeWithContentDescription("多标签（M4 占位）").assertIsNotEnabled()
+        // 刀5 落地多标签：「+」由禁用占位转正为可用入口（spec §4.1 Q5，跳服务器列表选机），
+        // contentDescription 由「多标签（M4 占位）」同步改为动作语义「新建终端」（见终报偏离清单）
+        onNodeWithContentDescription("新建终端").assertIsEnabled()
         onNodeWithText("助手").assertIsNotEnabled() // AI 助手 M5 占位
         onNodeWithText("在服务器列表选择「新建终端」以开始。").assertIsDisplayed()
     }

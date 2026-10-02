@@ -2,6 +2,9 @@
 package com.barezen.ssh.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +20,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -27,13 +32,28 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isTertiaryPressed
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.barezen.ssh.app.AppModel
+import com.barezen.ssh.app.Destination
+import com.barezen.ssh.app.SessionId
 import com.barezen.ssh.app.SessionSnapshot
 import com.barezen.ssh.ssh.ConnectionState
 import com.barezen.ssh.ssh.ShellChannel
@@ -42,8 +62,8 @@ import com.barezen.ssh.terminal.TerminalView
 import com.barezen.ssh.ui.theme.BareZenMonoSmall
 
 /**
- * 终端屏：标签条（36dp，已连接渲染会话标签，`+`/「助手」为禁用占位）+
- * 状态机内容区 + 状态栏（28dp/11sp，已连接带 `—` 指标位）。
+ * 终端屏：标签条（36dp，每条会话一个标签：单击切换、关闭按钮/中键关闭，`+` 跳服务器列表选机，
+ * 「助手」为禁用占位）+ 重挂提示（一次性）+ 状态机内容区 + 状态栏（28dp/11sp，已连接带 `—` 指标位）。
  * 未连接 CTA / 连接中 spin / 失败 msgbox+重试 / 已连接 TerminalView。
  *
  * 整屏状态机读**活动会话**（[SessionRegistry.active]），不再读单值投影：多会话并存时
@@ -52,8 +72,40 @@ import com.barezen.ssh.ui.theme.BareZenMonoSmall
 @Composable
 fun TerminalScreen(model: AppModel) {
     val active = model.registry.active
+    // §4.4 重挂提示：活动会话切换 = 终端区对新前台会话重挂（服务端新起 shell、滚动缓冲丢失）。
+    // UI 必须如实告知这个代价，不假装保留历史；同一条会话只提示一次（notifiedIds 记账），
+    // 再切回已提示过的会话不再打扰；提示在下一次切换时被顶掉，不叠加显示。
+    var lastActiveId by remember { mutableStateOf<SessionId?>(null) }
+    var restartNoticeFor by remember { mutableStateOf<SessionId?>(null) }
+    val notifiedIds = remember { mutableStateListOf<SessionId>() }
+    LaunchedEffect(active?.id) {
+        val id = active?.id
+        when {
+            id == null -> {
+                restartNoticeFor = null
+                lastActiveId = null
+            }
+            // 首次组合不算切换：用户没有经历任何切换，不给没有发生的坏消息
+            lastActiveId == null -> lastActiveId = id
+            id != lastActiveId -> {
+                restartNoticeFor = if (id in notifiedIds) null else id
+                if (id !in notifiedIds) notifiedIds += id
+                lastActiveId = id
+            }
+        }
+    }
     Column(Modifier.fillMaxSize()) {
-        TerminalTabStrip(active)
+        TerminalTabStrip(
+            sessions = model.registry.sessions,
+            activeId = model.registry.activeId,
+            onActivate = { model.registry.activate(it) },
+            onClose = { model.registry.close(it) },
+            onNewSession = { model.navigate(Destination.SERVERS) },
+        )
+        // 提示贴在内容区顶部：无论新前台会话处于何种状态，重挂的代价都已发生
+        if (restartNoticeFor != null && restartNoticeFor == active?.id) {
+            RestartNotice()
+        }
         Box(Modifier.fillMaxWidth().weight(1f)) {
             // 先解到快照再分派：Connected 分支需要整个 SessionSnapshot（id 用于失败回传、session 用于挂终端）
             when (val snapshot = active) {
@@ -73,53 +125,143 @@ fun TerminalScreen(model: AppModel) {
 
 /**
  * 标签条（设计包 §终端方案与组件表：36dp 高、panel 底、活动标签 elevated 6dp 圆角、无下划线）。
- * 已连接会话渲染标签（close 不渲染——显式断开是开放项）；
- * `+`（多标签 M4）与「助手」（AI 侧栏 M5）渲染为禁用占位——能力未实现，不给可点入口。
+ * 每条会话一个标签（数据源 [SessionRegistry.sessions]，插入序即显示序，spec §4.1）：
+ * 单击切换前台会话，关闭按钮/中键关闭；标签溢出时横向滚动。
+ * `+` 跳回服务器列表让用户选机（§4.1 Q5），「助手」（AI 侧栏 M5）仍为禁用占位。
  *
- * 入参是 [SessionSnapshot] 而非 [ConnectionState]：标签的身份是**会话**（id/title），
- * 多标签渲染需要会话列表，本刀先只渲染活动会话那一个，签名先按终态定型以免刀 5 再改一次。
+ * 标签身份是 [SessionId] 而非标题：同名服务器会出现重名标签（"name (2)" 之外仍以 id 为锚），
+ * 测试与无障碍一律走 testTag/语义定位（CONVENTIONS §4.3）。
  */
 @Composable
-private fun TerminalTabStrip(active: SessionSnapshot?) {
+private fun TerminalTabStrip(
+    sessions: List<SessionSnapshot>,
+    activeId: SessionId?,
+    onActivate: (SessionId) -> Unit,
+    onClose: (SessionId) -> Unit,
+    onNewSession: () -> Unit,
+) {
     val colors = MaterialTheme.colorScheme
     Row(
         Modifier.fillMaxWidth().height(36.dp).background(colors.surfaceContainer).padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (active != null && active.state is ConnectionState.Connected) {
-            Surface(color = colors.surfaceContainerHigh, shape = RoundedCornerShape(6.dp)) {
-                Row(
-                    Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        Icons.Outlined.Terminal,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = colors.onSurfaceVariant,
-                    )
-                    Text(
-                        active.title,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = colors.onSurface,
+        Row(
+            Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            sessions.forEach { snapshot ->
+                // key 锚定会话身份：增删标签时槽位按 id 复用，不因位置平移而错置
+                key(snapshot.id) {
+                    SessionTab(
+                        snapshot = snapshot,
+                        isSelected = snapshot.id == activeId,
+                        onActivate = onActivate,
+                        onClose = onClose,
                     )
                 }
             }
         }
-        Spacer(Modifier.weight(1f))
-        // 右侧组：M4 多标签占位 + M5 AI 助手占位（禁用）
-        IconButton(
-            onClick = {},
-            enabled = false,
-            modifier = Modifier.size(32.dp),
-        ) {
-            Icon(Icons.Filled.Add, contentDescription = "多标签（M4 占位）")
+        IconButton(onClick = onNewSession, modifier = Modifier.size(32.dp)) {
+            Icon(Icons.Filled.Add, contentDescription = "新建终端")
         }
         TextButton(onClick = {}, enabled = false) {
             Text("助手", fontSize = 12.sp, fontWeight = FontWeight.Medium)
         }
+    }
+}
+
+/**
+ * 单个标签：单击切换前台；关闭按钮或中键（tertiary）点击关闭。
+ * 选中态走语义 selected——无障碍读屏与测试断言共用同一事实源。
+ */
+@Composable
+private fun SessionTab(
+    snapshot: SessionSnapshot,
+    isSelected: Boolean,
+    onActivate: (SessionId) -> Unit,
+    onClose: (SessionId) -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        color = if (isSelected) colors.surfaceContainerHigh else Color.Transparent,
+        shape = RoundedCornerShape(6.dp),
+        modifier = Modifier
+            .testTag("session-tab-" + snapshot.id.raw)
+            .semantics { this.selected = isSelected }
+            .clickable { onActivate(snapshot.id) }
+            .pointerInput(snapshot.id) {
+                // 中键按下即关（与浏览器标签页一致）。不消费事件：外层 clickable 若随后
+                // 收到释放，也只会对已移除的 id 做一次无害激活（activate 对缺席 id 是 no-op）。
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        if (event.type == PointerEventType.Press && event.buttons.isTertiaryPressed) {
+                            onClose(snapshot.id)
+                        }
+                    }
+                }
+            },
+    ) {
+        Row(
+            Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Outlined.Terminal,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = if (isSelected) colors.onSurface else colors.onSurfaceVariant,
+            )
+            Text(
+                snapshot.title,
+                fontSize = 12.sp,
+                fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                color = if (isSelected) colors.onSurface else colors.onSurfaceVariant,
+            )
+            Box(
+                Modifier
+                    .testTag("session-tab-close-" + snapshot.id.raw)
+                    .size(16.dp)
+                    .clickable { onClose(snapshot.id) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Outlined.Close,
+                    contentDescription = null,
+                    modifier = Modifier.size(12.dp),
+                    tint = colors.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/** §4.4 重挂提示：一次性、贴内容区顶部；措辞必须如实——重挂 = 服务端新 shell，历史滚动缓冲不可保留。 */
+@Composable
+private fun RestartNotice() {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(colors.surfaceContainerHigh)
+            .testTag("terminal-restart-notice")
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Outlined.Info,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = colors.onSurfaceVariant,
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            "会话已重新打开：服务端会新起一个 shell，历史滚动缓冲不可保留。",
+            fontSize = 12.sp,
+            color = colors.onSurfaceVariant,
+        )
     }
 }
 
