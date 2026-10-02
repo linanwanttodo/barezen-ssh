@@ -33,6 +33,7 @@ kotlin {
             implementation(libs.sshj)
             implementation(libs.jediterm.ui)
             implementation(libs.jediterm.core)
+            implementation(libs.jna)
         }
         jvmTest.dependencies {
             implementation(libs.sshd.core)

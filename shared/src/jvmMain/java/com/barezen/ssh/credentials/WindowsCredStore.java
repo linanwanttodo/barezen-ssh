@@ -4,10 +4,9 @@ package com.barezen.ssh.credentials;
 /**
  * Windows 凭据管理器：advapi32 的 CredWriteW/CredReadW/CredDeleteW（CRED_TYPE_GENERIC）。
  *
- * 设计说明（本轮偏离）：仓库构建脚本未声明 JNA 依赖且按约束不可改动，因此真实
- * advapi32 绑定以 {@link Bridge} 注入——JNA 依赖就绪后补一个 JnaAdvapiBridge 即可接线，
- * 本类只负责参数拼装与结果映射（已穷举测试）。默认 bridge 报告不可用，
- * {@code CredentialStores.platformDefault()} 在 Windows 上会如实降级到内存存储。
+ * 默认构造已接线 {@link JnaAdvapiBridge}（JNA，批次 B1）：Windows 上 isAvailable()
+ * 返回真实状态，非 Windows 如实报告不可用并降级。参数拼装与结果映射已穷举测试；
+ * 真调用只在 Windows 发生。
  */
 public final class WindowsCredStore implements CredentialStore {
 
@@ -68,7 +67,7 @@ public final class WindowsCredStore implements CredentialStore {
     private final Bridge bridge;
 
     public WindowsCredStore() {
-        this(UNAVAILABLE);
+        this(JnaAdvapiBridge.create());
     }
 
     public WindowsCredStore(Bridge bridge) {

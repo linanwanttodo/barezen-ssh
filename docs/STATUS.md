@@ -96,6 +96,12 @@
 - 打包：`desktopApp:packageDistributionForCurrentOS` 实际构建成功，产出 `desktopApp/build/compose/binaries/main/deb/barezen-ssh_1.0.0_amd64.deb`（`dpkg-deb -I` 核对 Version: 1.0.0）；`nativeDistributions.includeAllModules = true`（jpackage 模块清单）；Dmg/Msi 格式已配置但需各自平台验证。
 - README 重写：项目简介、功能一览、运行/打包/测试命令、文档索引、已知限制（钥匙串真机、远端转发拓扑、AI BYOK 前置）。
 
+## 1.18 批次 B1：JNA + Windows 凭据真实桥（2026-10-02，见本批提交）
+
+- 依赖：`net.java.dev.jna:jna:5.17.0` 入版本目录（jvmMain）。
+- 新增 `JnaAdvapiBridge`：CredWriteW/CredReadW/CredDeleteW/CredFree，CREDENTIALW/FILETIME 结构体映射；`WindowsCredStore()` 默认构造接线（Windows 上 isAvailable() 返回真实状态，非 Windows 如实不可用并降级）。
+- 测试 +6（565/0）：编码往返（UTF-16LE，含中文）、空值语义、不可用桥惰性、结构体字段拼装与读回、字段序与 wincred.h 一致。**真调用路径（CredWriteW 等）Linux 无法覆盖，需 Windows 实机验证**（用户侧清单项）。
+
 ## 1.17 批次 A：发布通道上线（2026-10-02，见本批提交）
 
 - 远端仓库 `linanwanttodo/barezen-ssh`（公开）建成：master 首推 + tag `v1.0.0`；GitHub Release v1.0.0 挂 deb 资产（144MB），Release 说明中文无 emoji。
