@@ -22,6 +22,10 @@ class FakeSshSession(
     override fun startShell(onData: (ByteArray) -> Unit, onClosed: (Throwable?) -> Unit): ShellChannel =
         error("unused in metrics tests")
 
+    override fun newSftp(): SftpFs = error("FakeSshSession 未配置 SFTP")
+
+    override fun startForward(spec: ForwardSpec): ForwardTunnel = error("FakeSshSession 未配置转发")
+
     override fun close() {
         closed = true
     }

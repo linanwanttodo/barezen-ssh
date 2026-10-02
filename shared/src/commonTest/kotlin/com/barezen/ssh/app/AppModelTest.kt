@@ -7,6 +7,7 @@ import com.barezen.ssh.ssh.AuthMethod
 import com.barezen.ssh.ssh.ConnectRequest
 import com.barezen.ssh.ssh.ConnectionState
 import com.barezen.ssh.ssh.ExecResult
+import com.barezen.ssh.ssh.ForwardSpec
 import com.barezen.ssh.ssh.SshClient
 import com.barezen.ssh.ssh.SshSession
 import kotlinx.coroutines.CompletableDeferred
@@ -35,6 +36,8 @@ class AppModelTest {
             override fun pingMs() = 12L
             override fun exec(command: String, timeoutMs: Long) = ExecResult(0, "", "")
             override fun startShell(onData: (ByteArray) -> Unit, onClosed: (Throwable?) -> Unit) = error("unused")
+            override fun newSftp() = error("unused")
+            override fun startForward(spec: ForwardSpec) = error("unused")
             override fun close() {}
         }
         val m = model(object : SshClient { override suspend fun connect(request: ConnectRequest) = session })
@@ -59,6 +62,8 @@ class AppModelTest {
             override fun pingMs() = 12L
             override fun exec(command: String, timeoutMs: Long) = ExecResult(0, "", "")
             override fun startShell(onData: (ByteArray) -> Unit, onClosed: (Throwable?) -> Unit) = error("unused")
+            override fun newSftp() = error("unused")
+            override fun startForward(spec: ForwardSpec) = error("unused")
             override fun close() {}
         }
         val m = model(object : SshClient {
