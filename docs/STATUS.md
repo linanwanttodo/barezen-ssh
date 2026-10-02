@@ -145,6 +145,14 @@
 3. **远端转发数据通路**：环境受限（开发机经 VPS 出网），待互通服务器补验，非产品缺陷。
 4. **T-3 授权**：sftp 包（kotlin+java+fake）与 FilesScreen.kt，Ssh.kt/JvmSshClient.kt 禁改（T-2a 已关闭该范围）。
 
+## 3.2 决策追加（2026-10-02 深夜，T-3 收口后）
+
+T-3 已交付并独立复核（`42ec347`，456 用例 / 0 失败）。
+
+1. **SftpFs.upload 空块契约维持运行期守卫，不改接口**：`check` 快速失败 + KDoc 契约 + 回归测试已闭环；编译期方案（NonEmptyChunk value class / sealed 结果类型）收益边际、牵动 fake/测试/脚手架三处，不值得 Ssh.kt 接口churn。此决策为终局，不再重议。
+2. **T-4 多标签批准开工，但强制 spec-first**：先产出 `docs/superpowers/specs/2026-10-02-session-registry-design.md`（SessionRegistry 接口、AppModel 单会话字段迁移路径、*Host 接线层改造、断开/关闭语义、兼容策略），**spec 获批准后**再领实施授权；未批不动代码。
+3. 小项池（JNA+Windows 桥、亮色 Warning 变体、打包分发）不阻塞 T-4，由主代理择机批量派发。
+
 ## 4. 历史决策记录（不要重开讨论）
 
 1. 语言混编（2026-10-02 用户拍板）：Java 管解析/JNA/库包装，Kotlin 管 UI/状态。
