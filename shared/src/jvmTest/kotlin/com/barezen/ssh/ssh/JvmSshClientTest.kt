@@ -91,6 +91,50 @@ class JvmSshClientTest {
         shell.close()
         session.close()
     }
+
+    // ---- exec（P2 主机监控基础）----
+
+    @Test fun execReturnsStdoutStderrAndExitCode() = kotlinx.coroutines.runBlocking {
+        val port = startSshd()
+        val session = JvmSshClient(tofu()).connect(ConnectRequest("127.0.0.1", port, "test", AuthMethod.Password("secret")))
+        val out = session.exec("echo hello")
+        assertEquals(0, out.exitCode)
+        assertEquals("hello\n", out.stdout)
+        assertEquals("", out.stderr)
+        // 测试 sshd 用 ProcessShellCommandFactory（按 token 直接 exec，不经 shell）：
+        // stderr 用 ls 对不存在路径的真实报错产生，不走重定向
+        val err = session.exec("ls /barezen-no-such-path")
+        assertEquals(2, err.exitCode)
+        assertTrue(err.stderr.contains("barezen-no-such-path"))
+        session.close()
+    }
+
+    @Test fun execCarriesNonZeroExitCode() = kotlinx.coroutines.runBlocking {
+        val port = startSshd()
+        val session = JvmSshClient(tofu()).connect(ConnectRequest("127.0.0.1", port, "test", AuthMethod.Password("secret")))
+        val result = session.exec("false")
+        assertEquals(1, result.exitCode)
+        session.close()
+    }
+
+    @Test fun execTimeoutYieldsNullExitCode() = kotlinx.coroutines.runBlocking {
+        val port = startSshd()
+        val session = JvmSshClient(tofu()).connect(ConnectRequest("127.0.0.1", port, "test", AuthMethod.Password("secret")))
+        val result = session.exec("sleep 30", timeoutMs = 500)
+        assertEquals(null, result.exitCode)
+        session.close()
+    }
+
+    /** exec 与 pingMs 并发不串台：两者共享一把会话级锁串行执行（此处验证交错调用都成功）。 */
+    @Test fun execAndPingInterleavedSucceed() = kotlinx.coroutines.runBlocking {
+        val port = startSshd()
+        val session = JvmSshClient(tofu()).connect(ConnectRequest("127.0.0.1", port, "test", AuthMethod.Password("secret")))
+        repeat(3) {
+            assertTrue(session.pingMs() >= 0)
+            assertEquals(0, session.exec("true").exitCode)
+        }
+        session.close()
+    }
 }
 
 /** 简单回显 shell：启动即输出 READY，随后把输入原样回显。 */

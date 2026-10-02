@@ -40,13 +40,45 @@ class JvmSshClient(
 private class JvmSshSession(private val client: SSHClient) : SshSession {
     @Volatile private var session: Session? = null
 
-    override fun pingMs(): Long {
+    // 会话级锁：sshj SSHClient 单连接上并发开子通道不安全，exec 与 pingMs 串行化。
+    private val execLock = Object()
+
+    override fun pingMs(): Long = synchronized(execLock) {
         val started = System.nanoTime()
         // 0.40.0 的 Session.Command 无 waitFor()（javap 核对）：以有界 join 等待通道关闭。
         client.startSession().use { s ->
             s.exec("true").use { cmd -> cmd.join(10, TimeUnit.SECONDS) }
         }
-        return (System.nanoTime() - started) / 1_000_000
+        (System.nanoTime() - started) / 1_000_000
+    }
+
+    override fun exec(command: String, timeoutMs: Long): ExecResult = synchronized(execLock) {
+        try {
+            client.startSession().use { s ->
+                s.exec(command).use { cmd ->
+                    // sshj 把通道输出缓存在内存窗口里：先有界 join 等命令结束，再读流不会丢数据；
+                    // 超时则关通道强制 EOF，避免读流阶段无限阻塞。
+                    val timedOut = try {
+                        cmd.join(timeoutMs, TimeUnit.MILLISECONDS)
+                        false
+                    } catch (e: Exception) {
+                        runCatching { cmd.close() }
+                        true
+                    }
+                    val stdout = cmd.inputStream.readBytes().toString(Charsets.UTF_8)
+                    val stderr = cmd.errorStream.readBytes().toString(Charsets.UTF_8)
+                    val exit: Int? = cmd.exitStatus
+                    ExecResult(
+                        exitCode = if (timedOut || exit == null) null else exit,
+                        stdout = stdout,
+                        stderr = stderr,
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            // startSession/exec 本身失败：命令未执行，退出状态不可得
+            ExecResult(null, "", e.message ?: e.toString())
+        }
     }
 
     override fun startShell(onData: (ByteArray) -> Unit, onClosed: (Throwable?) -> Unit): ShellChannel {

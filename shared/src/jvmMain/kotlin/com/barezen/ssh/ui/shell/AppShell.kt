@@ -48,7 +48,7 @@ import androidx.compose.ui.unit.sp
 import com.barezen.ssh.app.AppModel
 import com.barezen.ssh.app.Destination
 import com.barezen.ssh.ui.screens.ConnectDialog
-import com.barezen.ssh.ui.screens.DashboardScreen
+import com.barezen.ssh.ui.screens.DashboardHost
 import com.barezen.ssh.ui.screens.FilesScreen
 import com.barezen.ssh.ui.screens.PortsScreen
 import com.barezen.ssh.ui.screens.ServersScreen
@@ -77,7 +77,7 @@ fun BareZenAppContent(model: AppModel) {
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
             when (model.current) {
-                Destination.DASHBOARD -> DashboardScreen()
+                Destination.DASHBOARD -> DashboardHost(model)
                 Destination.SERVERS -> ServersScreen(
                     model = model,
                     onNewTerminal = { model.requestConnect(it) },

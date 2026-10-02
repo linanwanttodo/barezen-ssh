@@ -23,8 +23,13 @@ interface ShellChannel {
     fun close()
 }
 
+/** 单条远程命令的执行结果；exitCode 为 null 表示超时或通道异常，退出状态不可信。 */
+data class ExecResult(val exitCode: Int?, val stdout: String, val stderr: String)
+
 interface SshSession {
     fun pingMs(): Long
+    /** 阻塞执行一条远程命令；stdout/stderr 均按 UTF-8 解码。 */
+    fun exec(command: String, timeoutMs: Long = 10_000L): ExecResult
     fun startShell(onData: (ByteArray) -> Unit, onClosed: (Throwable?) -> Unit): ShellChannel
     fun close()
 }

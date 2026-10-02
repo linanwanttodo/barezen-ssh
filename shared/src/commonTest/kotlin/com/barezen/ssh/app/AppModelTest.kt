@@ -6,6 +6,7 @@ import com.barezen.ssh.servers.Server
 import com.barezen.ssh.ssh.AuthMethod
 import com.barezen.ssh.ssh.ConnectRequest
 import com.barezen.ssh.ssh.ConnectionState
+import com.barezen.ssh.ssh.ExecResult
 import com.barezen.ssh.ssh.SshClient
 import com.barezen.ssh.ssh.SshSession
 import kotlinx.coroutines.CompletableDeferred
@@ -32,6 +33,7 @@ class AppModelTest {
     @Test fun connectHappyPathEndsConnected() = runBlocking {
         val session = object : SshSession {
             override fun pingMs() = 12L
+            override fun exec(command: String, timeoutMs: Long) = ExecResult(0, "", "")
             override fun startShell(onData: (ByteArray) -> Unit, onClosed: (Throwable?) -> Unit) = error("unused")
             override fun close() {}
         }
@@ -55,6 +57,7 @@ class AppModelTest {
         var connectCalls = 0
         val firstSession = object : SshSession {
             override fun pingMs() = 12L
+            override fun exec(command: String, timeoutMs: Long) = ExecResult(0, "", "")
             override fun startShell(onData: (ByteArray) -> Unit, onClosed: (Throwable?) -> Unit) = error("unused")
             override fun close() {}
         }

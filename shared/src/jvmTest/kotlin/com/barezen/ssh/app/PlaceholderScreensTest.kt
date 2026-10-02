@@ -40,8 +40,10 @@ class PlaceholderScreensTest {
         onNodeWithText("刷新").assertIsNotEnabled()
         onNodeWithText("数据来源：SSH 主机指标").assertIsDisplayed()
         listOf("CPU", "内存", "平均负载", "运行时间").forEach { onNodeWithText(it).assertIsDisplayed() }
-        onNodeWithText("CPU / 内存 / 网络折线图占位（M4）").assertIsDisplayed()
-        onNodeWithText("磁盘用量条形图占位（M4）").assertIsDisplayed()
+        onNodeWithText("CPU 使用率（最近 60 次采样）").assertIsDisplayed()
+        onNodeWithText("磁盘用量").assertIsDisplayed()
+        // 空态占位文案：两张图表卡各一处
+        assertEquals(2, onAllNodesWithText("连接后显示主机指标").fetchSemanticsNodes().size)
         // 四个指标值均为 —，绝无示例数值（brief 授权的 assertAny 回退写法：恰 4 个节点）
         assertEquals(4, onAllNodesWithText("—").fetchSemanticsNodes().size)
     }
