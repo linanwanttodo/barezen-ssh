@@ -90,6 +90,12 @@
 
 实施中修出的产品缺陷：`AiChatModel.send` 双次失败移除空占位气泡时漏置 `isStreaming = false`（流结束后输入永久禁用），测试先红后修复。
 
+## 1.15 v1.0 收官批次三：T-8 版本与打包（2026-10-02，见本批提交）
+
+- 版本 1.0.0：`gradle.properties` `barezen.version=1.0.0`（单一真相源）+ `BuildInfo.VERSION` 同步（BuildInfoTest 守卫一致性）。
+- 打包：`desktopApp:packageDistributionForCurrentOS` 实际构建成功，产出 `desktopApp/build/compose/binaries/main/deb/barezen-ssh_1.0.0_amd64.deb`（`dpkg-deb -I` 核对 Version: 1.0.0）；`nativeDistributions.includeAllModules = true`（jpackage 模块清单）；Dmg/Msi 格式已配置但需各自平台验证。
+- README 重写：项目简介、功能一览、运行/打包/测试命令、文档索引、已知限制（钥匙串真机、远端转发拓扑、AI BYOK 前置）。
+
 ## 2. 未完成（按优先级，任务书见 ROADMAP.md）
 
 0. **钥匙串真机验证**：接线已在 T-3 完成（`KeychainCredentialResolver.platformDefault()`），但本环境无 `secret-tool`/D-Bus 会话，原生路径未真机跑过。待用户桌面机首次运行时验证：勾选「记住凭据」-> 重启 -> 连接免输密码 -> 钥匙串出现 `BareZen-SSH`/`barezen-id=server/<id>/password` 条目 -> 删除服务器后条目消失。

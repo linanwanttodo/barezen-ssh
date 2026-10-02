@@ -27,6 +27,8 @@ compose.desktop {
             packageName = "BareZen-SSH"
             // 版本单一真相源在 gradle.properties；不要在这里硬编码
             packageVersion = providers.gradleProperty("barezen.version").get()
+            // jpackage 需要显式模块清单（无模块化 descriptor 的 classpath jar 应用）
+            includeAllModules = true
         }
     }
 }

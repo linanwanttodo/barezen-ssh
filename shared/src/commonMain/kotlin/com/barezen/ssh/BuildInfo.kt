@@ -8,5 +8,5 @@ package com.barezen.ssh
  * 本常量必须与之保持一致 —— 由 `BuildInfoTest` 守卫，改一处忘另一处会变红。
  */
 object BuildInfo {
-    const val VERSION: String = "0.1.0"
+    const val VERSION: String = "1.0.0"
 }
