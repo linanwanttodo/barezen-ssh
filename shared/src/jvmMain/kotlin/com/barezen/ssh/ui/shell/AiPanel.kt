@@ -56,7 +56,6 @@ import com.barezen.ssh.app.AiChatModel
 import com.barezen.ssh.app.extractCommands
 import com.barezen.ssh.terminal.TerminalBridge
 import com.barezen.ssh.ui.screens.EmptyHint
-import com.barezen.ssh.ui.theme.BareZenError
 import com.barezen.ssh.ui.theme.BareZenMonoBody
 import com.barezen.ssh.ui.theme.BareZenMonoSmall
 
@@ -176,7 +175,7 @@ private fun AiPanelExpanded(
                 AiMessageBubble(message) { command -> pendingInject = command }
             }
             chat.error?.let { err ->
-                Text(err, color = BareZenError, fontSize = 12.sp, modifier = Modifier.testTag("ai-error"))
+                Text(err, color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.testTag("ai-error"))
             }
             lastSendNote?.let { note ->
                 Text(note, color = colors.onSurfaceVariant, fontSize = 11.sp)
@@ -291,7 +290,7 @@ private fun AiPanelExpanded(
                             modifier = Modifier.padding(8.dp).testTag("ai-inject-command"),
                         )
                     }
-                    injectError?.let { Text(it, color = BareZenError, fontSize = 12.sp) }
+                    injectError?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
                 }
             },
             confirmButton = {

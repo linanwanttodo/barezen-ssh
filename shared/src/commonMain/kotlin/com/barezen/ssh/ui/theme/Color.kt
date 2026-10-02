@@ -43,6 +43,8 @@ val BareZenLightTextTertiary = Color(0xFF67676F)
 val BareZenLightAccent = Color(0xFF3A3A40)
 val BareZenLightOnAccent = Color(0xFFFFFFFF)
 val BareZenLightAccentSubtle = Color(0x0F000000) // 黑色 6% alpha
+val BareZenLightError = Color(0xFFC93B38)       // 亮色板 error 文字/图标/描边：同一红色色相加深（白底 5.04:1，AA）
+val BareZenLightOnErrorDeep = Color(0xFF93312E) // errorContainer 上的文字：更深的同色相红（tint 底 6.48:1，AA）
 val BareZenLightErrorBg = Color(0x29F3625F)
 @Deprecated(message = "配色终审（STATUS 3.4）：UI 仅黑/白/灰；此彩色令牌不再被 UI 消费，仅为兼容保留，禁止新消费。", level = DeprecationLevel.WARNING)
 val BareZenLightWarningBg = Color(0x29FBBF24)

@@ -111,11 +111,12 @@ internal fun ServersHeader(model: AppModel, onRetry: (Server) -> Unit) {
                         fontSize = 13.sp,
                     )
                     Spacer(Modifier.weight(1f))
-                    // ghost + text-error：TextButton（无描边）+ error 文字色，照设计包
+                    // ghost + text-error：TextButton（无描边）；亮色板 error 在 errorContainer 上
+                    // 不足 AA（4.23），文字走 onErrorContainer（同色相深红，6.48）
                     TextButton(
                         onClick = { onRetry(failedState.server) },
                         colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
                         ),
                     ) { Text("重试") }
                 }

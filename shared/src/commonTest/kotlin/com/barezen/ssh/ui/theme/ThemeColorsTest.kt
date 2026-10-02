@@ -43,6 +43,9 @@ class ThemeColorsTest {
     @Test fun lightOnAccentDerivedFromSameHue() = assertEquals(Color(0xFFFFFFFF), BareZenLightOnAccent)
     @Test fun lightBorderKeepsDbxRgb() = assertEquals(Color(0x476E6E72), BareZenLightBorder)
     @Test fun lightErrorBgUsesHigherAlpha() = assertEquals(Color(0x29F3625F), BareZenLightErrorBg)
+    // 亮色板 error 深浅两档：同一红色色相按明度派生（白底 AA / tint 底 AA）
+    @Test fun lightErrorDerivedFromSameHue() = assertEquals(Color(0xFFC93B38), BareZenLightError)
+    @Test fun lightOnErrorDeepDerivedFromSameHue() = assertEquals(Color(0xFF93312E), BareZenLightOnErrorDeep)
 
     @Test fun schemeMapsDesignTokens() {
         val c = BareZenDarkColors
@@ -65,8 +68,9 @@ class ThemeColorsTest {
         val c = BareZenLightColors
         assertEquals(BareZenLightAccent, c.primary)
         assertEquals(BareZenLightOnAccent, c.onPrimary)
-        assertEquals(BareZenError, c.error)
+        assertEquals(BareZenLightError, c.error)
         assertEquals(BareZenLightErrorBg, c.errorContainer)
+        assertEquals(BareZenLightOnErrorDeep, c.onErrorContainer)
         assertEquals(BareZenLightBg, c.background)
         assertEquals(BareZenLightSurface, c.surface)
         assertEquals(BareZenLightPanel, c.surfaceContainerLow)
@@ -114,6 +118,10 @@ class ThemeColorsTest {
             Triple(BareZenLightTextTertiary, BareZenLightBg, 4.5),
             Triple(BareZenLightTextTertiary, BareZenLightPanel, 4.5),
             Triple(BareZenLightAccent, BareZenLightBg, 4.5),
+            Triple(BareZenLightOnAccent, BareZenLightAccent, 4.5),
+            Triple(BareZenLightError, BareZenLightSurface, 4.5),
+            Triple(BareZenLightError, BareZenLightBg, 4.5),
+            Triple(BareZenLightOnErrorDeep, composited(BareZenLightSurface, BareZenLightErrorBg), 4.5),
             Triple(BareZenLightOnAccent, BareZenLightAccent, 4.5),
         )
         cases.forEach { (fg, bg, min) ->

@@ -96,6 +96,14 @@
 - 打包：`desktopApp:packageDistributionForCurrentOS` 实际构建成功，产出 `desktopApp/build/compose/binaries/main/deb/barezen-ssh_1.0.0_amd64.deb`（`dpkg-deb -I` 核对 Version: 1.0.0）；`nativeDistributions.includeAllModules = true`（jpackage 模块清单）；Dmg/Msi 格式已配置但需各自平台验证。
 - README 重写：项目简介、功能一览、运行/打包/测试命令、文档索引、已知限制（钥匙串真机、远端转发拓扑、AI BYOK 前置）。
 
+## 1.19 批次 B2：亮色板对比度走查（2026-10-02，见本批提交）
+
+- 方法偏离：无头环境无法对真实桌面截图走查（Wayland 会话安全策略拦截抓屏，X11 display 无可见内容），改为**全组合 WCAG 对比度代码级审计**（前景×背景逐对计算，消费点逐一核实），视觉走查归入用户侧清单（§2.1）。
+- 修复 3 处：亮色板 error 文字/图标/描边由暗色同值红（白底 3.12，不达 AA）改为同色相加深 `BareZenLightError #C93B38`（白底 5.04）；`onErrorContainer` 改为更深同色相 `BareZenLightOnErrorDeep #93312E`（错误 tint 底 6.48）；连接失败卡「重试」按钮由 error 改 onErrorContainer（原 4.23 不达 AA）。
+- 组件消费修复：AI 面板 2 处硬编码 `BareZenError` 改走 `colorScheme.error`（不再绕过主题）。
+- 核实不动：`onSurfaceVariant` 全部消费都在 surface/panel/bg 上（≥4.64），无落在 accentSubtle 上的组合；暗色板全部组合维持既有证据不变。
+- 测试 +2（567/0）：亮色 error 两档令牌断言 + 亮色 AA 用例补 error/onErrorContainer 组合。
+
 ## 1.18 批次 B1：JNA + Windows 凭据真实桥（2026-10-02，见本批提交）
 
 - 依赖：`net.java.dev.jna:jna:5.17.0` 入版本目录（jvmMain）。
