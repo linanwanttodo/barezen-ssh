@@ -1,27 +1,26 @@
 # 架构（ARCHITECTURE）
 
-更新：2026-10-02。本文回答「系统怎么组织、为什么这样组织」。
+更新：2026-10-02。回答「系统怎么组织、为什么这样组织」。约束与操作分别见 CONVENTIONS.md / DEVELOPMENT.md。
 
 ## 1. 技术栈与形态
 
 | 项 | 值 |
 |---|---|
-| 语言 | Kotlin 2.4.20 为主 + Java 21（解析器/JNA/库包装，见 4 节混编边界） |
+| 语言 | Kotlin 2.4.20 为主 + Java 21（解析/JNA/库包装，见 4 节） |
 | UI | Compose Multiplatform 1.12.1（Desktop，JVM-only 目标） |
 | 终端 | JediTerm 3.73（swing 面板嵌入，`TerminalTtyConnector` 桥接） |
-| SSH | sshj 0.40.0（`JvmSshClient` 封装，TOFU 主机密钥校验） |
-| 序列化 | kotlinx-serialization-json（设置/服务器配置持久化） |
-| 构建 | Gradle 9.5.1 wrapper，KMP `jvm()` 单目标 |
-
-产品形态：单窗口桌面 SSH 客户端，暗色优先（DBX 设计令牌），中文界面。
+| SSH | sshj 0.40.0（`JvmSshClient` 封装，TOFU 主机密钥） |
+| 凭据 | 平台钥匙串（Linux secret-tool / macOS security / Windows advapi32 bridge） |
+| 序列化 | kotlinx-serialization-json（设置/服务器/转发规则持久化） |
+| 构建 | Gradle wrapper 9.5.1，KMP `jvm()` 单目标 |
 
 ## 2. 模块与分层
 
 ```
 desktopApp/   入口壳：main.kt + Desktop 明暗/缩放接线，无业务逻辑
 shared/
-  commonMain  跨平台纯逻辑：Ssh 接口、AppModel、AppSettings、Server、令牌
-  jvmMain     桌面实现：全部 Compose UI、JvmSshClient、文件仓库、Java 解析器
+  commonMain  跨平台纯逻辑：Ssh 接口、AppModel、AppSettings、Server、主题令牌
+  jvmMain     桌面实现：全部 Compose UI、JvmSshClient、文件仓库、Java 纯逻辑、凭据
   commonTest  跨平台单测（fake 注入，零 IO）
   jvmTest     JVM 单测 + Compose UI 测试（skiko 软渲染，headless 可跑）
 ```
@@ -29,86 +28,77 @@ shared/
 依赖方向（单向，禁止逆向）：
 
 ```
-ui/screens, ui/shell  ->  app(AppModel)  ->  ssh / servers / settings  ->  commonMain 基础类型
-        ^ Java 解析器位于 ssh.metrics 包，仅被 app 层协调器调用
+ui/screens, ui/shell(*Host 接线层)  ->  app(AppModel)  ->  ssh / servers / settings / credentials
+        ssh.jvmMain 子包：metrics(指标) sftp(文件) forward(转发)  <- Java 纯逻辑在 jvmMain/java
 ```
 
 - `ui/` 只消费状态与 data class，不持有连接、不解析文本。
-- `app/` 是唯一的状态协调层：连接生命周期、路由（`Destination`）、设置聚合（`SettingsModel`）。
-- `ssh/servers/settings` 三个数据包互相不依赖，全部通过 `app` 层组合。
+- `ui/shell/` 的 `*Host` 是**接线层范式**：连接建立时创建屏幕模型（`DashboardHost`/`FilesHost`/`PortsHost`），断开时释放（停轮询/取消传输/关隧道）。新屏幕照此办理。
+- `app/` 是状态协调层：连接状态机（`ConnectionState`：Disconnected/Connecting/Connected/Failed，幂等防重入）、路由（`Destination`）、设置聚合。
+- 数据包（ssh/servers/settings/credentials）互相不依赖，经 app 层组合。
 
 ## 3. 关键数据流
 
 ### 3.1 连接生命周期
 
 ```
-UI（ServersScreen/ConnectDialog）
-  -> AppModel.connect(request)            幂等防重入
-  -> SshClient.connect()                  JvmSshClient：sshj SSHClient，TOFU 验证
-  -> ConnectionState 状态机               Disconnected/Connecting/Connected/Failed
-  -> Connected 后 Dashboard/终端复用同一 SshSession
+ServersScreen/ConnectDialog -> AppModel.requestConnect -> ConnectDialog 确认
+  -> AppModel.startConnect（防重入）-> SshClient.connect（JvmSshClient，TOFU 验证）
+  -> Connected(shellSession)  -> *Host 层据此创建各屏模型
+断开/失败：shellSession.close()，各 Host 经 LaunchedEffect(connected) 复位
 ```
 
-- 状态机在 `ssh/Ssh.kt`（commonMain），UI 通过组合订阅。
-- 主机密钥 TOFU（`TofuHostKeyVerifier`）：首次信任并落盘，变更即拒绝。
+### 3.2 SSH 通道能力（Ssh.kt，commonMain 接口）
 
-### 3.2 设置与持久化
+`SshSession` 五能力：`pingMs` / `exec(command, timeoutMs): ExecResult` / `startShell` / `newSftp(): SftpFs` / `startForward(spec): ForwardTunnel`。
 
-- `AppSettings`（commonMain，纯数据 + `sanitized()` 脱敏契约）。
-- `FileSettingsRepository`（jvmMain）：原子写（`.tmp` + `Files.move`）、损坏隔离（`*.corrupt-<epochMillis>`）、`coerceInputValues` 容错。
-- `ServerRepository` 同构：`FileServerRepository`，导入导出时走 `ConnectionTransfer`（默认脱敏，`ADDRESS_MASK` 固定串掩码）。
+- **exec**：每条命令独立 session channel；有界 join 超时先关通道强制 EOF 再读流（防读流阻塞）；超时/异常 exitCode=null（语义：退出状态不可信）。
+- **并发**：sshj `SSHClient` 非线程安全——`JvmSshSession.execLock` 串行化 exec/pingMs；shell 通道独立。转发 accept 循环与远程转发 pump 在自有守护线程。
+- **SftpFs**：`list/mkdir/delete/rename` + 流式 `download(remotePath, onChunk)` / `upload(remotePath, size, nextChunk)`（32/64KiB 分块，大文件不驻留内存）。
+- **转发**：LOCAL 经 sshj `LocalPortForwarder`（127.0.0.1 绑定）；REMOTE 经 `RemotePortForwarder.bind` + 自写双向对拷线程；动态（SOCKS5）sshj 0.40 无实现，未提供。
 
-### 3.3 SSH 通道扩展（P2 起）
-
-`SshSession` 接口从三方法（`pingMs/startShell/close`）扩展出：
-
-- `exec(command, timeoutMs): ExecResult`——指标采集、探活；每条命令独立 session channel，不与 shell 抢 PTY。
-- `newSftp()`（P4）——文件传输。
-- 并发约束：sshj `SSHClient` 非线程安全，`JvmSshSession` 内部对通道操作串行化（同一把锁），上层轮询间隔 >=5s 不构成瓶颈。
-
-### 3.4 指标管线（P2）
+### 3.3 指标管线
 
 ```
-MetricsCollector（Kotlin，轮询协程，StateFlow<MetricsSnapshot?>）
-  -> SshSession.exec("cat /proc/...; df -P ...")
-  -> Java 解析器（jvmMain/java/com/barezen/ssh/ssh/metrics/）：String -> 不可变 data class
-  -> DashboardScreen 只消费 Snapshot 渲染，不碰文本
+MetricsCollector（轮询协程，默认 5s，StateFlow<MetricsSnapshot?>）
+  -> SshSession.exec(cat /proc/...; df -P)
+  -> Java 解析器（jvmMain/java/.../ssh/metrics/）：String -> 不可变 data class
+  -> DashboardScreen 只消费 Snapshot
 ```
 
-红线：无连接时展示「—」占位，不造数。
+命令失败（exitCode!=0/null）整体置 null 并继续轮询；单项解析失败仅该字段置 null。红线：无连接显示「—」，不造数。
 
-## 4. 混编语言边界（契约全文见 docs/superpowers/2026-10-02-dev-contract.md）
+### 3.4 凭据（能力已建，接入待办 T-1）
 
-| 归 Kotlin | 归 Java |
+`CredentialStore`（jvmMain `credentials/`）：`save/load/delete/isAvailable`，id 约定 `server/<serverId>/password|keypass`。平台实现：GnomeKeyringStore（secret-tool 子进程，进程注入可测）、MacKeychainStore（security 子进程）、WindowsCredStore（bridge 注入，真实调用待 JNA 依赖）、InMemory 降级。**当前未接入连接流程**（ROADMAP T-1）。
+
+### 3.5 持久化契约（三处同构）
+
+设置 `FileSettingsRepository`、服务器 `FileServerRepository`、转发规则 `ForwardRuleStore`：原子写（`.tmp` + `Files.move`）、损坏隔离（`*.corrupt-<epochMillis>`）、`coerceInputValues` 容错。新增文件持久化照抄此模式。
+
+## 4. 混编语言边界
+
+| 归 Kotlin | 归 Java（`shared/src/jvmMain/java/`） |
 |---|---|
-| ui/ 全部 Compose | 文本/协议解析（/proc、df 输出） |
-| app/ 状态与协调（协程） | JNA 系统绑定（P3 钥匙串） |
-| 跨平台接口与 fake | 第三方 Java 库包装（sshj SFTP 封装） |
+| ui/ 全部 Compose | 指标解析 5 类：LoadAvg/MemInfo/Uptime/DiskUsage/CpuUsage |
+| app/ 状态协调（协程） | SFTP 纯逻辑 5 类：SftpPaths/EntrySorter/FileSizeFormatter/TransferThrottler/LocalChunkReader |
+| 跨平台接口与 fake | 凭据 5 类：GnomeKeyring/MacKeychain/WindowsCred/CommandRunner/CredentialStoreException |
 
-- Java 源目录：`shared/src/jvmMain/java/com/barezen/ssh/...`，Gradle 自动编译。
-- 语言边界即模块边界：Java 不 import Compose；UI 不解析协议文本——解析器产出 data class，UI 只消费。
-- 包名 `com.barezen.ssh`（2026-10-02 从 `barezen_ssh` 重构）；Compose 资源生成包显式固定为 `com.barezen.ssh.generated.resources`（shared/build.gradle.kts `packageOfResClass`）。
+边界规则：Java 不 import Compose；UI 不解析文本；解析器产出不可变 data class。当前 Java 共 15 文件约 700 行，全部有配套穷举单测。
 
 ## 5. 主题系统
 
-- 令牌集中在 `ui/theme/Color.kt`（DBX 对齐：chrome/content/gutter 三层表面 + 中性主色 + 四语义色带 12–16% alpha 背景），`Theme.kt` 装配 dark/light 两套 colorScheme，形状 6/4px。
-- 唯一允许改动令牌值的任务是主题底座（R0）；功能任务只消费 `MaterialTheme.colorScheme`，禁止组件内硬编码颜色。
-- 亮色主题经由设置外观分类的明暗选择生效（`BareZenTheme(darkTheme)`）。
+- 令牌 `ui/theme/Color.kt`（DBX 对齐）：暗色 chrome `0xFF131416` / content `0xFF1B1B1E` / sidebar `0xFF19191C`、中性主色 `0xFFD0D0D6`、语义色带 12-16% alpha 背景；亮色板同色相派生（`BareZenLight*`）。
+- `Theme.kt` 装配 dark/light 两套 colorScheme；`App.kt` 按 `Theme.DARK/LIGHT/FOLLOW_SYSTEM` 解析；形状 6/4px。
+- 令牌 val 名称是稳定 API：只许改值，不许改名；组件只消费 `MaterialTheme.colorScheme`。
 
 ## 6. 测试策略
 
-- 跨平台逻辑（AppModel/Settings/过滤）：commonTest，fake 注入（如 `CapturingSshClient`）。
-- JVM 实现（文件仓库、解析器、UpdateChecker）：jvmTest，临时目录 + 穷举单测。
-- Compose UI：jvmTest 走 skiko 软渲染（headless），选择器优先 `testTag`，避免多节点文本歧义。
-- 基线：28 套件 / 149 用例 / 0 失败；任何提交前门禁必须全绿（命令见 docs/DEVELOPMENT.md）。
+- 跨平台逻辑：commonTest，fake 注入（`FakeSshClient/FakeSshSession`（支持 exec 计数与 sftpFactory 注入）/`CapturingSshClient`）。
+- JVM 实现：jvmTest，临时目录 + 穷举单测（Java 解析器 35+ 例）。
+- Compose UI：jvmTest skiko 软渲染；`testTag` 优先；`*Host` 全链路用 fake + `waitUntil` 验证真值上屏。
+- 基线：**367 用例 / 0 失败**（jvmTest）+ commonTest 若干。门禁见 CONVENTIONS 第 7 节。
 
 ## 7. 文档索引
 
-| 文档 | 内容 |
-|---|---|
-| docs/DEVELOPMENT.md | 环境、构建门禁、TDD、提交规范、沙箱排障 |
-| docs/superpowers/2026-10-02-dev-contract.md | 子代理共同契约（硬约束） |
-| docs/superpowers/2026-10-02-comprehensive-audit-and-plan.md | 全量审计 + 语言适配表 + P2-P6 规划 |
-| docs/superpowers/2026-10-02-next-phase-roadmap.md | 路线图与 DBX 令牌摘录 |
-| docs/superpowers/specs/ 2026-09-24 设计文档 | 产品/界面设计源头 |
-| PRODUCT.md | 产品定位 + 混编约定 |
+见 [README.md](README.md)。历史文档（混编规划、旧契约、旧路线图）在 `docs/archive/`，设计定稿在 `docs/superpowers/specs/`。
