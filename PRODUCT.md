@@ -36,6 +36,10 @@ BareZen-SSH 是跨平台（Linux / Windows / macOS）桌面 SSH 客户端：以�
 5. **暗色是场景的物理现实**：深夜运维、屏幕是主光源——暗色主题由此决定，不是耍酷；对比度仍须达 WCAG AA。
 6. **站在成熟系统上**：采用现成的 Material 3 设计系统与组件词汇，一致性优先于个性发明。
 
+## Language Mix（混编约定，2026-10-02 拍板）
+
+Java 与 Kotlin 混编：**UI（Compose）、协程状态、路由一律 Kotlin；文本/协议解析、JNA 系统绑定、第三方 Java 库（sshj 等）包装一律 Java**。Java 源放 `jvmMain/java/` 对应包；跨平台接口与测试 fake 留在 commonMain Kotlin。语言边界即模块边界：Java 类不 import Compose，UI 不直接解析协议文本——解析器产出不可变 data class，界面只消费。现有 Kotlin 代码不迁移，新代码按此归置，不为混编而混编。详见 `docs/superpowers/2026-10-02-comprehensive-audit-and-plan.md` 第 2.1/3.1 节。
+
 ## Accessibility & Inclusion
 
 - WCAG AA：正文对比度 ≥ 4.5:1，大字号 ≥ 3:1；焦点环可见；Tab 顺序符合视觉顺序
