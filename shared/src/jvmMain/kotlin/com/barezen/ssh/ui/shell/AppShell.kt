@@ -38,6 +38,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,10 +50,16 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.barezen.ssh.app.AppModel
+import com.barezen.ssh.app.AiChatModel
+import com.barezen.ssh.app.AiConfig
 import com.barezen.ssh.app.Destination
 import com.barezen.ssh.app.JvmSessionResources
+import com.barezen.ssh.app.JavaAiHttpTransport
+import com.barezen.ssh.app.PlatformAiKeyStore
 import com.barezen.ssh.servers.FileForwardRuleStore
 import com.barezen.ssh.ssh.forward.ForwardManager
+import com.barezen.ssh.terminal.LocalTerminalBridge
+import com.barezen.ssh.terminal.TerminalBridge
 import com.barezen.ssh.ssh.sftp.SftpModel
 import com.barezen.ssh.ssh.sftp.TransferStatus
 import com.barezen.ssh.ui.screens.ConnectDialog
@@ -74,6 +81,29 @@ import kotlinx.coroutines.flow.StateFlow
 @Composable
 fun BareZenAppContent(model: AppModel) {
     var collapsed by remember { mutableStateOf(false) }
+    // T-7：AI 运维侧栏。单实例 AiKeyStore 由壳持有（同时下传侧栏与设置屏），
+    // 避免两处各自建内存降级存储导致互不可见。
+    var aiExpanded by remember { mutableStateOf(false) }
+    val aiKeys = remember { PlatformAiKeyStore.platformDefault() }
+    val aiScope = rememberCoroutineScope()
+    val aiChat = remember(aiScope) {
+        AiChatModel(
+            scope = aiScope,
+            transport = JavaAiHttpTransport(),
+            // endpoint/model 来自设置、key 来自钥匙串；任一缺失视为未配置。
+            configProvider = {
+                val s = model.settings.settings
+                val key = aiKeys.loadKey()
+                if (s.aiEndpoint.isBlank() || s.aiModel.isBlank() || key.isNullOrBlank()) {
+                    null
+                } else {
+                    AiConfig(s.aiEndpoint, s.aiModel, key)
+                }
+            },
+        )
+    }
+    // 终端桥：TerminalView 经 LocalTerminalBridge 挂载活动会话的只读缓冲与写入口
+    val terminalBridge = remember { TerminalBridge() }
     Row(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         AppSidebar(
             model = model,
@@ -81,25 +111,34 @@ fun BareZenAppContent(model: AppModel) {
             onToggle = { collapsed = !collapsed },
             modifier = Modifier.fillMaxHeight(),
         )
-        Surface(
-            modifier = Modifier.weight(1f).fillMaxHeight(),
-            color = MaterialTheme.colorScheme.background,
-            shape = RoundedCornerShape(topStart = 8.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        ) {
-            when (model.current) {
-                Destination.DASHBOARD -> DashboardHost(model)
-                Destination.SERVERS -> ServersScreen(
-                    model = model,
-                    onNewTerminal = { model.requestConnect(it) },
-                    onOpenFiles = { model.navigate(Destination.FILES) },
-                )
-                Destination.TERMINAL -> TerminalScreen(model)
-                Destination.FILES -> FilesHost(model)
-                Destination.PORTS -> PortsHost(model)
-                Destination.SETTINGS -> SettingsScreen(model)
+        CompositionLocalProvider(LocalTerminalBridge provides terminalBridge) {
+            Surface(
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                color = MaterialTheme.colorScheme.background,
+                shape = RoundedCornerShape(topStart = 8.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                when (model.current) {
+                    Destination.DASHBOARD -> DashboardHost(model)
+                    Destination.SERVERS -> ServersScreen(
+                        model = model,
+                        onNewTerminal = { model.requestConnect(it) },
+                        onOpenFiles = { model.navigate(Destination.FILES) },
+                    )
+                    Destination.TERMINAL -> TerminalScreen(model)
+                    Destination.FILES -> FilesHost(model)
+                    Destination.PORTS -> PortsHost(model)
+                    Destination.SETTINGS -> SettingsScreen(model, aiKeys)
+                }
             }
         }
+        AiPanel(
+            chat = aiChat,
+            keys = aiKeys,
+            bridge = terminalBridge,
+            expanded = aiExpanded,
+            onToggle = { aiExpanded = !aiExpanded },
+        )
     }
 
     // 钥匙串预填：每个待连接服务器解析一次。**必须放在 LaunchedEffect 里**——

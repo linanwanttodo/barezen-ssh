@@ -47,6 +47,11 @@ data class AppSettings(
     val autoConnectServerId: String? = null,
     val hideAddresses: Boolean = false,
     val conflictPolicy: ConflictPolicy = ConflictPolicy.ASK,
+    // 智能助手（T-7，OpenAI 兼容 /v1/chat/completions）。endpoint 填到 /v1
+    // （如 https://api.openai.com/v1），请求时拼接 /chat/completions。
+    // API key 不在此处：只存钥匙串（AiKeyStore），绝不落 settings.json。
+    val aiEndpoint: String = "",
+    val aiModel: String = "",
     // 更新
     val updateRepo: String? = null,
     val updateChannel: UpdateChannel = UpdateChannel.STABLE,
@@ -127,6 +132,19 @@ fun AppSettings.sanitized(): Sanitized {
             warnings += "反馈入口「$url」不是 http(s) 链接，已清空"
             s = s.copy(feedbackUrl = null)
         }
+    }
+    // 智能助手 endpoint：非空时必须是 http(s)；收敛前先去掉首尾与结尾多余斜杠
+    if (s.aiEndpoint.isNotBlank()) {
+        val trimmed = s.aiEndpoint.trim().trimEnd('/')
+        if (!AppSettings.isValidUrl(trimmed)) {
+            warnings += "智能助手 endpoint「${s.aiEndpoint}」不是 http(s) 链接，已清空"
+            s = s.copy(aiEndpoint = "")
+        } else if (trimmed != s.aiEndpoint) {
+            s = s.copy(aiEndpoint = trimmed)
+        }
+    }
+    if (s.aiModel.trim() != s.aiModel) {
+        s = s.copy(aiModel = s.aiModel.trim())
     }
     if (s.autoConnectServerId?.isBlank() == true) {
         s = s.copy(autoConnectServerId = null)

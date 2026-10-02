@@ -1,6 +1,6 @@
 # 进度台账（STATUS）
 
-更新：2026-10-02（HEAD `a0b5c8a` + T-1 提交）。本文是唯一进度事实源：完成了什么（提交对照）、没完成什么、已知问题。
+更新：2026-10-02（v1.0 收官批次一/二已提交）。本文是唯一进度事实源：完成了什么（提交对照）、没完成什么、已知问题。
 
 ## 1. 已完成
 
@@ -68,6 +68,27 @@
 
 - 验收对照：① 未存凭据的连接流程与现状一致（`NoopCredentialResolver` 默认 + 回归全绿）；② 钥匙串可用时勾选「记住凭据」下次免输入、不可用时回退并提示（`ConnectDialog` 三分支文案 + 测试）；③ 删除服务器同步清理（`AppModel.removeServer` → `forget`，幂等）；④ UI 测试覆盖勾选/未勾选/不可用，门禁 411/0。
 - **待真机验证**：本沙箱无 `secret-tool`（实测退出码 1、无 D-Bus 服务），`probeNativeStore()` 恒返回 null，故「真钥匙串写入后下次连接免输密码」与「原生可用的 macOS/Windows 分支」只能由用户在本机验证；沙箱内覆盖的是注入式 fake 与内存降级路径。`KeychainCredentialResolver.platformDefault()` 为壳层接线入口（当前 `AppShell` 尚未注入它，仍走 `NoopCredentialResolver`）。
+
+## 1.13 v1.0 收官批次一：T-6 UI 对齐（2026-10-02，提交 `e3e5a54`）
+
+- UI 仅黑/白/灰；红色 0xFFF3625F 成为唯一保留语义色（仅警告/错误）；终端 ANSI 配色不动（数据）。
+- 彩色 token（Warning/WarningBg/Info/InfoBg/LightWarningBg/LightInfoBg）全部 @Deprecated（定义保留，消费点清零）。
+- 空态统一 `EmptyHint` 组件；PRODUCT.md 基准改 DBX。
+
+## 1.14 v1.0 收官批次二：T-7 P6 AI 运维侧栏（2026-10-02，见本批提交）
+
+| 内容 | 说明 |
+|---|---|
+| 面板壳 | 右侧可折叠：展开 320dp / 折叠 56dp rail（`ai-panel-toggle` 切换） |
+| 对话 | 「对话」标题 + 新建会话；用户右对齐 / AI 左对齐气泡；流式纯文本渲染（无 Markdown 库） |
+| 模型接入 | OpenAI 兼容 `/v1/chat/completions` SSE；endpoint/model 进设置分类「智能助手」，API key 只存钥匙串 `ai/openai-compat/apikey`（不进 settings.json），无钥匙串降级内存并明示 |
+| 终端上下文 | 「附带终端上下文」开关默认关；开时取活动会话滚动缓冲最后 200 行（`TerminalBridge.lastLines`），消息区如实显示「已附带终端输出 N 行」 |
+| 注入审批 | 检测代码块 / `$ ` 提示符行 → 「注入 <命令>」按钮 → 对话框显示确切命令 → 确认后经 `TerminalBridge.writeCommand` 写入 ShellChannel（与用户键盘同路径）；无审批不注入，无会话时错误保留对话框 |
+| 未配置 | endpoint/model/key 任一缺失即视为未配置：输入禁用 + 引导「在设置-智能助手填写 API 配置后可用」 |
+| 容错 | 网络失败重试 1 次；流中断保留已接收文本且不算错误；流内 API error 上浮 |
+| 测试增量 | 43 例（513 -> 556，0 失败）：SSE 解析（跨块/多行/finish/字段行）、重试/中断/双失败、命令提取、桥快照/写入、面板 rail 切换/无 key 禁用/审批全流程/上下文 chip、设置向后兼容 |
+
+实施中修出的产品缺陷：`AiChatModel.send` 双次失败移除空占位气泡时漏置 `isStreaming = false`（流结束后输入永久禁用），测试先红后修复。
 
 ## 2. 未完成（按优先级，任务书见 ROADMAP.md）
 

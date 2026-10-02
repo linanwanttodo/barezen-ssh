@@ -31,6 +31,9 @@ fun TerminalView(
     settings: AppSettings = AppSettings.Default,
     modifier: Modifier = Modifier,
 ) {
+    // T-7：AI 侧栏桥接。AppShell 提供 LocalTerminalBridge；无值（未挂侧栏）时 null，
+    // 终端行为完全不变。桥接只拿只读缓冲快照与审批后的写入入口。
+    val bridge = LocalTerminalBridge.current
     val widget = remember(session) {
         JediTermWidget(BareZenTerminalSettings(settings.copyOnSelect)).apply {
             //SwingPanel 的 background 参数已弃用（compose 1.12.1）：按其指引在组件创建时手动设置，同为 #1E1E1E
@@ -50,10 +53,14 @@ fun TerminalView(
         channel = session.startShell(onData = connector::onData, onClosed = { connector.markClosed() })
         widget.setTtyConnector(connector)
         widget.start()
+        // T-7：通道就绪后把只读缓冲与写入口交给桥（仅当壳层提供了桥时）
+        bridge?.attach(widget.terminalTextBuffer, channel)
         onDispose {
-            // 先关 connector：置 isConnected=false，widget.close() 打断阻塞中的 read 时
+            // 先解除桥接（AI 侧栏立即失去快照/注入能力），再关 connector：
+            // 置 isConnected=false，widget.close() 打断阻塞中的 read 时
             // 模拟器线程的异常会被静默吞掉；同时关闭 SSH 通道。onClosed 无论正常关闭还是
             // 连接错误（Task 6 已知延后项）都只表示“没有更多输出”，错误分类留给上层状态。
+            bridge?.detach()
             connector.close()
             widget.close()
         }

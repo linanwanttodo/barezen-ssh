@@ -39,10 +39,17 @@ class SettingsScreenTest {
     }
 
     @OptIn(ExperimentalTestApi::class)
-    @Test fun assistantAndCredentialsAreHonestPlaceholders() = runComposeUiTest {
+    @Test fun assistantSectionIsRealAndCredentialsStaysPlaceholder() = runComposeUiTest {
         setContent { BareZenTheme { SettingsScreen(model()) } }
+        // 智能助手已是真实分类（T-7）：三项配置 + 保存入口都在
         onNodeWithText("智能助手").performClick()
-        onNodeWithText("智能助手属 M5，尚未接入。").assertIsDisplayed()
+        onNodeWithTag("ai-endpoint-input").assertIsDisplayed()
+        onNodeWithTag("ai-model-input").assertIsDisplayed()
+        onNodeWithTag("ai-key-input").assertIsDisplayed()
+        onNodeWithTag("ai-key-save").assertIsDisplayed()
+        // 默认 NoopAiKeyStore：钥匙串不可用，降级提示照实显示
+        onNodeWithText("系统钥匙串不可用，key 仅保存在内存，退出即丢失", substring = true).assertExists()
+        // 凭据仍是诚实占位
         onNodeWithText("凭据").performClick()
         onNodeWithText("凭据库属 M3，尚未接入。").assertIsDisplayed()
     }

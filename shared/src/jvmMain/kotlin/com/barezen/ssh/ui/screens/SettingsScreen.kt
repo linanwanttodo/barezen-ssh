@@ -29,22 +29,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.barezen.ssh.app.AppModel
+import com.barezen.ssh.app.AiKeyStore
+import com.barezen.ssh.app.NoopAiKeyStore
 import com.barezen.ssh.app.SettingsModel
 import com.barezen.ssh.ui.theme.focusRing
 
-/** 设置八分类（左列导航；右列 6 真分类路由到 section，智能助手/凭据为诚实占位）。 */
+/** 设置八分类（左列导航；右列 7 真分类路由到 section，仅凭据为诚实占位）。 */
 private val SettingsCategories =
     listOf("外观", "终端", "连接", "智能助手", "凭据", "存储", "更新", "关于")
 
 /**
  * 设置屏（index.html「设置屏 · 分类布局」）：左列 200dp 分类导航（客户端状态切换）+
- * 右侧内容。右列按 [selected] 路由到 6 个分类 section，智能助手/凭据为诚实占位。
+ * 右侧内容。右列按 [selected] 路由到 7 个分类 section，仅凭据为诚实占位。
+ *
+ * [aiKeys] 为 AI API key 存取端口；未提供时用 [NoopAiKeyStore]（无 key、不落盘），
+ * 仅供测试/预览组合使用。
  *
  * 顶部通知区在 [SettingsModel.loadNotice] / [SettingsModel.saveError] 非空时出现，
  * 各带一个「知道了」关闭按钮。
  */
 @Composable
-fun SettingsScreen(model: AppModel) {
+fun SettingsScreen(model: AppModel, aiKeys: AiKeyStore = NoopAiKeyStore) {
     var selected by remember { mutableStateOf(0) }
     val settings = model.settings
 
@@ -102,19 +107,7 @@ fun SettingsScreen(model: AppModel) {
                 0 -> AppearanceSettingsSection(settings)
                 1 -> TerminalSettingsSection(settings)
                 2 -> ConnectionSettingsSection(settings, model.servers)
-                3 -> SettingsSectionScaffold("智能助手") {
-                    Text(
-                        "智能助手属 M5，尚未接入。",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    androidx.compose.foundation.layout.Spacer(Modifier.height(4.dp))
-                    Text(
-                        "（AI 会话侧栏与命令审批流在后续里程碑实现）",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                3 -> AiSettingsSection(settings, aiKeys)
                 4 -> SettingsSectionScaffold("凭据") {
                     Text(
                         "凭据库属 M3，尚未接入。",
