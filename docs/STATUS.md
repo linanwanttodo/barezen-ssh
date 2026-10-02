@@ -71,10 +71,9 @@
 
 ## 2. 未完成（按优先级，任务书见 ROADMAP.md）
 
-1. **T-1 剩余：壳层注入 `KeychainCredentialResolver.platformDefault()` 并真机验证**：端口、适配器、UI、测试均已就绪；`AppShell` 目前仍用默认 `NoopCredentialResolver`（凭据不落盘），接上工厂即启用，属一行改动，与真机验证一并在 T-2 完成。
+0. **钥匙串真机验证**：接线已在 T-3 完成（`KeychainCredentialResolver.platformDefault()`），但本环境无 `secret-tool`/D-Bus 会话，原生路径未真机跑过。待用户桌面机首次运行时验证：勾选「记住凭据」-> 重启 -> 连接免输密码 -> 钥匙串出现 `BareZen-SSH`/`barezen-id=server/<id>/password` 条目 -> 删除服务器后条目消失。
 2. **T-2 VPS 真机冒烟**：SFTP/指标/本地转发/远端转发数据通路已全部通过（见 1.11）；仅剩下述一项受网络拓扑阻塞。
    - **远端转发数据通路无法在本环境验证**：本机公网出口 IP 经实测**就是该 VPS 自身**（`curl api.ipify.org` = 158.101.11.31，与 `SSH_CLIENT` 一致），VPS 无法 TCP 回连本机 18080；已证 VPS→其自身 127.0.0.1 通路完好（对照试验通过），故属链路不可达而非产品缺陷。需另找一台与开发机互通的服务器复验。
-3. **T-3 SFTP 删除/重命名 UI**：`SftpFs.delete/rename` 能力已备，无界面入口。
 4. **T-4 P5 多标签/分屏**：会话注册表重构 + AppShell 改造。
 5. **T-5 P6 AI 运维侧栏**：待用户决策。
 6. 小项池：动态转发 SOCKS5（sshj 无现成实现）、JNA 依赖补 Windows 真实桥、亮色板 Warning 前景变体、自动打包分发。
@@ -107,6 +106,20 @@
 
 **结论**：29 项检查 28 通过，唯一失败项已定位为环境限制而非产品缺陷。
 
+## 1.12 T-3 SFTP 删除/重命名 + 完成句柄 + 钥匙串接线（2026-10-02 晚，见本批提交）
+
+| 内容 | 说明 |
+|---|---|
+| 钥匙串接线（T-1 收口） | `AppModel.real()` 注入 `KeychainCredentialResolver.platformDefault()`，替换原 Noop——T-1 自此不是死代码。**不可用时行为与接线前逐字一致**（`isAvailable()` 为 false -> ConnectDialog 走「系统钥匙串不可用，凭据不会保存」分支，勾选框不渲染、凭据不落盘）；原生可用时按 T-1 设计的勾选/预填路径生效 |
+| 完成句柄 | `TransferTask.completion: Deferred<TransferTask>` + `SftpModel.awaitCompletion(id)` / `awaitAll()`；任务进入终态（Done/Failed/取消）时完成，未知 id 返回 null 不抛异常。6 例单测覆盖：已完成立即返回、进行中阻塞至终态、失败返回 Failed、未知 id 为 null、失败也必完成、awaitAll 按 id 有序 |
+| 删除（T-3） | 行尾「删除」-> 确认框（testTag `file-delete-dialog`）；文件走 delete，空目录走 rmdir；**非空目录由服务端拒绝并把原因显示在错误条，不做一键递归**；完成后刷新列表 |
+| 重命名（T-3） | 行尾「重命名」-> 行内输入框（预填原名）；非法名（空/含 `/`/含 `\\`/`.`/`..`）前端拦截、确认按钮禁用并显示原因；名称未变时亦禁用 |
+| 新增纯函数 | Java `RemoteNameValidator`（jvmMain/java，与既有解析器同风格，8 例穷举单测：合法/空/空白/分隔符/导航名/超长） |
+
+- 测试增量：**35 例**（421 -> 456，0 失败）。
+- 关键实现选择：完成任务用 `CompletableDeferred` 且**只在首次进入终态时完成**，重复置状态不会覆盖（取消后再置状态也安全）。
+- 排查价值：本次假死排查中「卡住与忙等难区分」正因缺少完成句柄——现在冒烟脚手架与未来 UI 都可 `await` 传输真正结束。
+
 ## 3. 已知问题 / 技术债
 
 | 项 | 现状 | 处置建议 |
@@ -123,7 +136,7 @@
 | 钥匙串子进程无超时 | `CommandRunner` 同步读流无超时，Linux 下 `secret-tool` 弹解锁框可能长期阻塞 | 当前靠「只在 `LaunchedEffect`/协程里调用」规避；后续可加超时与取消 |
 | 无 UI 级删除服务器入口 | `AppModel.removeServer` 已具备（含钥匙串清理）但 ServersScreen 无按钮 | 设计内为 M2 占位；需要时单独排期 |
 | `FakeSftpFs.upload` 与生产实现的终止语义不同构 | fake 用 `nextChunk(offset) ?: break`，生产曾是空块 `continue`，导致缺陷逃过单测 | 已由 T-2a 修复生产侧；fake 侧建议后续补充"空块"负样例 |
-| `SftpModel` 传输为 fire-and-forget | 无完成句柄，调用方无法 await；排查假死时「卡住」与「忙等」难以区分 | 已决策（2026-10-02）：随 T-3 同批补完成句柄（`awaitCompletion`/Deferred 语义，接口改进走 Ssh.kt 外的 sftp 包内） |
+| ~~`SftpModel` 传输为 fire-and-forget~~ | 无完成句柄，无法 await；排查假死时「卡住」与「忙等」难以区分 | **已在 T-3 解决**：`TransferTask.completion` + `awaitCompletion/awaitAll` |
 
 ## 3.1 决策追加（2026-10-02 晚，T-2a/T-2 收口）
 

@@ -5,8 +5,10 @@ import com.barezen.ssh.ssh.SftpEntry
 import com.barezen.ssh.ssh.SftpException
 import com.barezen.ssh.ssh.SftpFs
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,7 +40,13 @@ sealed interface TransferStatus {
     data class Failed(val message: String) : TransferStatus
 }
 
-/** 传输任务快照；totalBytes 为 -1 表示大小未知（不显示百分比）。 */
+/**
+ * 传输任务快照；totalBytes 为 -1 表示大小未知（不显示百分比）。
+ *
+ * [completion] 在任务进入终态（Done 或 Failed）时完成，值是终态快照；
+ * 供冒烟脚手架与需要「等待传输真正结束」的调用方使用（见 [SftpModel.awaitCompletion]）。
+ * 进行中任务的 completion 未完成，取消同样会以 Failed(已取消) 结束它。
+ */
 data class TransferTask(
     val id: Long,
     val kind: TransferKind,
@@ -46,6 +54,7 @@ data class TransferTask(
     val totalBytes: Long,
     val transferredBytes: Long,
     val status: TransferStatus,
+    val completion: Deferred<TransferTask>,
 )
 
 /**
@@ -71,6 +80,8 @@ class SftpModel(
     private var fs: SftpFs? = null
     private val nextId = AtomicLong(1L)
     private val cancelFlags = ConcurrentHashMap<Long, AtomicBoolean>()
+    /** 任务 id -> 终态完成信号；任务进入终态时以终态快照完成。 */
+    private val completions = ConcurrentHashMap<Long, CompletableDeferred<TransferTask>>()
 
     init {
         home()
@@ -206,14 +217,83 @@ class SftpModel(
 
     private fun newTask(kind: TransferKind, name: String): Long {
         val id = nextId.getAndIncrement()
+        val completion = CompletableDeferred<TransferTask>()
+        completions[id] = completion
         _transfers.update {
-            it + TransferTask(id, kind, name, totalBytes = 0L, transferredBytes = 0L, status = TransferStatus.Running)
+            it + TransferTask(
+                id = id,
+                kind = kind,
+                name = name,
+                totalBytes = 0L,
+                transferredBytes = 0L,
+                status = TransferStatus.Running,
+                completion = completion,
+            )
         }
         return id
     }
 
     private fun updateTask(id: Long, transform: (TransferTask) -> TransferTask) {
-        _transfers.update { list -> list.map { if (it.id == id) transform(it) else it } }
+        var settled: TransferTask? = null
+        _transfers.update { list ->
+            list.map {
+                if (it.id != id) {
+                    it
+                } else {
+                    val next = transform(it)
+                    if (next.status !is TransferStatus.Running) settled = next
+                    next
+                }
+            }
+        }
+        // 只在首次进入终态时完成信号；重复调用（如取消后再次置状态）不会覆盖
+        settled?.let { s -> completions[id]?.complete(s) }
+    }
+
+    /**
+     * 等待指定任务进入终态并返回该终态快照。
+     *
+     * - 任务已完成/失败：立即返回（completion 已完成的 Deferred 不挂起）；
+     * - 任务进行中：挂起直到终态；
+     * - id 不存在：返回 null（不抛异常，调用方按「未知任务」处理）。
+     *
+     * 取消该挂起不会影响任务本身（任务在自己的协程里跑）。
+     */
+    suspend fun awaitCompletion(id: Long): TransferTask? =
+        completions[id]?.await()
+
+    /** 等待当前全部任务进入终态，返回按 id 排序的终态快照列表。 */
+    suspend fun awaitAll(): List<TransferTask> {
+        val snapshot = _transfers.value
+        return snapshot.mapNotNull { awaitCompletion(it.id) }.sortedBy { it.id }
+    }
+
+    /**
+     * 删除远端条目：文件直接删，空目录用 rmdir；非空目录会被服务端拒绝并原样报错。
+     */
+    fun delete(entry: SftpEntry) = scope.launch {
+        val fs = fsOrNull() ?: return@launch
+        val path = SftpPaths.join(_state.value.cwd, entry.name)
+        try {
+            withContext(io) { fs.delete(path) }
+            list(_state.value.cwd)
+        } catch (e: Exception) {
+            _state.update { it.copy(loading = false, error = describe(e)) }
+        }
+    }
+
+    /** 重命名当前目录下的 [entry] 为 [newName]；非法名由调用方先行校验。 */
+    fun rename(entry: SftpEntry, newName: String) = scope.launch {
+        val fs = fsOrNull() ?: return@launch
+        val dir = _state.value.cwd
+        val from = SftpPaths.join(dir, entry.name)
+        val to = SftpPaths.join(dir, newName.trim())
+        try {
+            withContext(io) { fs.rename(from, to) }
+            list(dir)
+        } catch (e: Exception) {
+            _state.update { it.copy(loading = false, error = describe(e)) }
+        }
     }
 
     private suspend fun fsOrFail(): SftpFs = fsOrNull() ?: throw SftpException(_state.value.error ?: "SFTP 未就绪")

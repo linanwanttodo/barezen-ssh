@@ -42,10 +42,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.testTag
 import com.barezen.ssh.ssh.SftpEntry
 import com.barezen.ssh.ssh.sftp.FileSizeFormatter
 import com.barezen.ssh.ssh.sftp.SftpModel
 import com.barezen.ssh.ssh.sftp.SftpPaths
+import com.barezen.ssh.ssh.sftp.RemoteNameValidator
 import com.barezen.ssh.ssh.sftp.TransferKind
 import com.barezen.ssh.ssh.sftp.TransferStatus
 import com.barezen.ssh.ssh.sftp.TransferTask
@@ -59,6 +61,25 @@ import kotlin.math.roundToInt
 
 /** 修改时间列的显示格式。 */
 private val mtimeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+
+/** 删除确认框的 testTag（文案含变量，用标签定位避免多节点歧义）。 */
+const val FILE_DELETE_DIALOG_TAG = "file-delete-dialog"
+
+/** 重命名对话框的 testTag。 */
+const val FILE_RENAME_DIALOG_TAG = "file-rename-dialog"
+
+/** 重命名输入框 testTag（预填原名，与列表行同名会造成语义歧义）。 */
+const val FILE_RENAME_INPUT_TAG = "file-rename-input"
+
+/** 删除确认按钮 testTag（列表行也有「删除」，需唯一定位）。 */
+const val FILE_DELETE_CONFIRM_TAG = "file-delete-confirm"
+
+/** 重命名确认按钮 testTag。 */
+const val FILE_RENAME_CONFIRM_TAG = "file-rename-confirm"
+
+/** 列表行的删除/重命名按钮 testTag 前缀，拼条目名：file-delete-<name> / file-rename-<name>。 */
+const val FILE_DELETE_PREFIX = "file-delete-"
+const val FILE_RENAME_PREFIX = "file-rename-"
 
 /**
  * 文件管理屏：路径栏 + 文件列表 + 底部传输进度区。
@@ -77,6 +98,8 @@ fun FilesScreen(
     val state = model?.state?.collectAsState()?.value
     val tasks = model?.transfers?.collectAsState()?.value ?: emptyList()
     var showMkdirDialog by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<SftpEntry?>(null) }
+    var pendingRename by remember { mutableStateOf<SftpEntry?>(null) }
 
     Column(Modifier.fillMaxSize()) {
         // 屏头（通用式样：56dp、horizontal 24）
@@ -164,7 +187,15 @@ fun FilesScreen(
             }
         } else {
             LazyColumn(Modifier.fillMaxWidth().weight(1f).padding(horizontal = 24.dp)) {
-                items(state.entries) { entry -> EntryRow(model, entry, pickSaveDir) }
+                items(state.entries) { entry ->
+                    EntryRow(
+                        model = model,
+                        entry = entry,
+                        pickSaveDir = pickSaveDir,
+                        onDelete = { pendingDelete = entry },
+                        onRename = { pendingRename = entry },
+                    )
+                }
             }
         }
 
@@ -192,11 +223,44 @@ fun FilesScreen(
             onDismiss = { showMkdirDialog = false },
         )
     }
+
+    // 删除确认框（破坏性操作必须二次确认；目录须为空，由服务端拒绝非空目录）
+    pendingDelete?.let { entry ->
+        DeleteConfirmDialog(
+            entry = entry,
+            onConfirm = {
+                model?.delete(entry)
+                pendingDelete = null
+            },
+            onDismiss = { pendingDelete = null },
+        )
+    }
+
+    // 重命名对话框（非法名在前端拦截，不发出请求）
+    pendingRename?.let { entry ->
+        RenameDialog(
+            entry = entry,
+            onConfirm = { newName ->
+                model?.rename(entry, newName)
+                pendingRename = null
+            },
+            onDismiss = { pendingRename = null },
+        )
+    }
 }
 
-/** 文件列表行：图标 + 名称 + 大小 + 修改时间；目录整行可点进入，文件提供下载按钮。 */
+/**
+ * 文件列表行：图标 + 名称 + 大小 + 修改时间；目录整行可点进入，文件提供下载按钮。
+ * 行尾提供重命名与删除入口（两操作均需二次确认）。
+ */
 @Composable
-private fun EntryRow(model: SftpModel, entry: SftpEntry, pickSaveDir: () -> String?) {
+private fun EntryRow(
+    model: SftpModel,
+    entry: SftpEntry,
+    pickSaveDir: () -> String?,
+    onDelete: () -> Unit,
+    onRename: () -> Unit,
+) {
     Row(
         Modifier.fillMaxWidth()
             .clickable(enabled = entry.isDirectory) { model.enter(entry.name) }
@@ -242,8 +306,86 @@ private fun EntryRow(model: SftpModel, entry: SftpEntry, pickSaveDir: () -> Stri
                 )
             }) { Text("下载") }
         }
+        TextButton(
+            onClick = onRename,
+            modifier = Modifier.testTag(FILE_RENAME_PREFIX + entry.name),
+        ) { Text("重命名") }
+        TextButton(
+            onClick = onDelete,
+            modifier = Modifier.testTag(FILE_DELETE_PREFIX + entry.name),
+        ) { Text("删除") }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+/**
+ * 删除确认框：破坏性操作二次确认。
+ * 目录额外提示「仅能删除空目录」，不做一键递归删除（防误删整棵树）。
+ */
+@Composable
+private fun DeleteConfirmDialog(entry: SftpEntry, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.testTag(FILE_DELETE_DIALOG_TAG),
+        title = { Text(if (entry.isDirectory) "删除文件夹" else "删除文件") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("确定删除「" + entry.name + "」？此操作不可撤销。", fontSize = 13.sp)
+                if (entry.isDirectory) {
+                    Text(
+                        "仅能删除空目录；非空目录需先清空其中的内容。",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                modifier = Modifier.testTag(FILE_DELETE_CONFIRM_TAG),
+            ) {
+                Text("删除", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
+}
+
+/** 重命名对话框：非法名（空 / 含分隔符 / . 与 ..）在前端拦截，确认按钮禁用并给出原因。 */
+@Composable
+private fun RenameDialog(entry: SftpEntry, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf(entry.name) }
+    val error = RemoteNameValidator.validate(name)
+    val unchanged = name.trim() == entry.name
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.testTag(FILE_RENAME_DIALOG_TAG),
+        title = { Text("重命名") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    placeholder = { Text("新名称") },
+                    singleLine = true,
+                    modifier = Modifier.testTag(FILE_RENAME_INPUT_TAG),
+                )
+                if (error != null) {
+                    Text(error, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = error == null && !unchanged,
+                onClick = { onConfirm(name.trim()) },
+                modifier = Modifier.testTag(FILE_RENAME_CONFIRM_TAG),
+            ) { Text("确定") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
 }
 
 /** 单个传输任务行：类型 + 名称 + 进度条 + 百分比/状态 + 取消。 */

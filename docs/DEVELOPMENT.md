@@ -18,7 +18,7 @@
 ./gradlew :shared:jvmTest --tests "com.barezen.ssh.ssh.metrics.*"   # 跑单个包
 ```
 
-### 2.1 门禁（提交前必须全绿；当前基线 421 用例 / 0 失败）
+### 2.1 门禁（提交前必须全绿；当前基线 456 用例 / 0 失败）
 
 受限环境（无 X、`/root` 不可写）的完整配方：
 

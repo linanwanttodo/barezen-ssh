@@ -19,6 +19,10 @@ class FakeSftpFs(
     /** 非空时收集上传的每块内容。 */
     var uploadSink: MutableList<ByteArray>? = null,
     var uploadError: SftpException? = null,
+    var deleteError: SftpException? = null,
+    var renameError: SftpException? = null,
+    /** 每块写入前调用（上传块边界注入阻塞/取消时机）。 */
+    var beforeUploadChunk: (() -> Unit)? = null,
 ) : SftpFs {
     val listedDirs = mutableListOf<String>()
     val downloads = mutableListOf<String>()
@@ -40,10 +44,12 @@ class FakeSftpFs(
 
     override fun delete(path: String) {
         deletes += path
+        deleteError?.let { throw it }
     }
 
     override fun rename(oldPath: String, newPath: String) {
         renames += oldPath to newPath
+        renameError?.let { throw it }
     }
 
     override fun download(remotePath: String, onChunk: (ByteArray) -> Unit): Long {
@@ -63,6 +69,7 @@ class FakeSftpFs(
         uploadError?.let { throw it }
         var offset = 0L
         while (true) {
+            beforeUploadChunk?.invoke()
             val chunk = nextChunk(offset) ?: break
             uploadSink?.add(chunk)
             offset += chunk.size
