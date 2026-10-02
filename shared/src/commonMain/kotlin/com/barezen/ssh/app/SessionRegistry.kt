@@ -27,6 +27,15 @@ data class SessionSnapshot(
     val state: ConnectionState,
     /** 仅 [ConnectionState.Connected] 时非空；其余状态恒为 null（状态与会话同进同退）。 */
     val session: SshSession?,
+    /**
+     * 会话级资源（隧道管理器等）；与 [session] 同进同退——仅 [ConnectionState.Connected] 时非空，
+     * 断开/失败/关闭后为 null，且其隧道已随 [SessionScoped.close] 释放。
+     *
+     * 归会话持有而不是归 Host：Host 随标签切换而重建，归 Host 会让「切走标签」= 「关隧道」。
+     * 类型是 commonMain 的 [SessionScoped] 接口，具体实现由壳层经 [SessionRegistry] 的
+     * resourcesFactory 注入（jvmMain 的 ForwardManager 在 commonMain 不可见）。
+     */
+    val resources: SessionScoped?,
     /** 标签标题：默认 server.name，同名服务器重复连接时为 "name (2)" 以避免标签无法区分。 */
     val title: String,
 )
@@ -49,6 +58,13 @@ class SessionRegistry(
     private val ssh: SshClient,
     private val scope: CoroutineScope,
     private val maxSessions: Int = DEFAULT_MAX_SESSIONS,
+    /**
+     * 会话级资源工厂：会话进入 [ConnectionState.Connected] 时调用一次，产物挂在该会话快照上。
+     *
+     * 这是**产品注入点**（不同壳层/平台可提供不同资源），不是测试脚手架——与 AppModel 的
+     * credentials 注入点同一性质。默认 null＝不创建任何会话级资源，行为与引入该参数之前完全一致。
+     */
+    private val resourcesFactory: ((SshSession) -> SessionScoped)? = null,
 ) {
     /** 会话列表，顺序 = 标签显示顺序（插入序）。 */
     val sessions: List<SessionSnapshot> get() = snapshots
@@ -72,7 +88,8 @@ class SessionRegistry(
     fun connect(server: Server, auth: AuthMethod): SessionId {
         if (snapshots.size >= maxSessions) throw SessionLimitException(maxSessions)
         val id = SessionId(nextRaw++)
-        snapshots += SessionSnapshot(id, server, ConnectionState.Connecting(server), null, titleFor(server.name))
+        snapshots +=
+            SessionSnapshot(id, server, ConnectionState.Connecting(server), null, null, titleFor(server.name))
         activeId = id
         // 防重入：本会话只允许一个在途连接（同一 SessionId 不重复建连）；不同会话可并发
         connectJobs.remove(id)?.cancel()
@@ -108,7 +125,10 @@ class SessionRegistry(
         if (index < 0) return
         val current = snapshots[index]
         current.session?.close()
-        snapshots[index] = current.copy(state = ConnectionState.Disconnected, session = null)
+        // 会话资源随之一并释放：隧道绑定 SSH 会话，会话没了隧道必然不通，不做保活（§5.1）
+        current.resources?.close()
+        snapshots[index] =
+            current.copy(state = ConnectionState.Disconnected, session = null, resources = null)
     }
 
     /**
@@ -122,9 +142,11 @@ class SessionRegistry(
         if (index < 0) return
         val current = snapshots[index]
         current.session?.close()
+        current.resources?.close()
         snapshots[index] = current.copy(
             state = ConnectionState.Failed(current.server, message),
             session = null,
+            resources = null,
         )
     }
 
@@ -139,7 +161,10 @@ class SessionRegistry(
         connectJobs.values.forEach { it.cancel() }
         connectJobs.clear()
         pending.clear()
-        snapshots.forEach { it.session?.close() }
+        snapshots.forEach {
+            it.session?.close()
+            it.resources?.close()
+        }
         snapshots.clear()
         activeId = null
     }
@@ -160,7 +185,12 @@ class SessionRegistry(
         if (index < 0) return
         val current = snapshots[index]
         current.session?.close()
-        snapshots[index] = current.copy(state = ConnectionState.Connecting(current.server), session = null)
+        current.resources?.close()
+        snapshots[index] = current.copy(
+            state = ConnectionState.Connecting(current.server),
+            session = null,
+            resources = null,
+        )
         activeId = id
     }
 
@@ -194,13 +224,17 @@ class SessionRegistry(
         val current = snapshots[index]
         val message = slot.failure
         if (message != null) {
-            snapshots[index] = current.copy(state = ConnectionState.Failed(current.server, message), session = null)
+            snapshots[index] =
+                current.copy(state = ConnectionState.Failed(current.server, message), session = null)
             return
         }
         val session = slot.session ?: return
+        // 资源与 Connected 同帧落位：先关旧资源再挂新的，避免状态已连而资源还是上一次的
+        current.resources?.close()
         snapshots[index] = current.copy(
             state = ConnectionState.Connected(current.server, session.pingMs()),
             session = session,
+            resources = resourcesFactory?.invoke(session),
         )
     }
 
@@ -214,6 +248,8 @@ class SessionRegistry(
         discardPending(id)?.session?.close()          // 结果丢失：就地释放，不留孤儿连接
         if (removed.id == activeId) activeId = snapshots.getOrNull(if (index > 0) index - 1 else 0)?.id
         removed.session?.close()
+        // 关闭标签 = 释放该会话全部资源（隧道 closeAll）：切走保持、关闭即释放、不保活（§5.1）
+        removed.resources?.close()
     }
 
     /** 丢弃该会话尚未收口的结果（已建成的会话交给调用方释放，未建成的由 [pump] 释放）。 */

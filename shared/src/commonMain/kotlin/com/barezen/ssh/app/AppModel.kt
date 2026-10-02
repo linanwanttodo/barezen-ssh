@@ -28,6 +28,13 @@ class AppModel(
      * 默认 [NoopCredentialResolver]＝不存取，行为与本类引入该参数之前完全一致。
      */
     val credentials: CredentialResolver = NoopCredentialResolver,
+    /**
+     * 会话级资源工厂（jvmMain 的 JvmSessionResources 由壳层注入）：会话连上时创建隧道管理器等
+     * 「不应随 UI 切换而销毁」的模型。默认 null＝不创建，行为与本类引入该参数之前完全一致。
+     *
+     * 与 [credentials] 同为**产品注入点**，不是测试脚手架。
+     */
+    resourcesFactory: ((SshSession) -> SessionScoped)? = null,
 ) {
     var current: Destination by mutableStateOf(Destination.SERVERS)
         private set
@@ -38,7 +45,7 @@ class AppModel(
      * 会话注册表：多会话的唯一真相源。连接生命周期只在这里被改写——
      * 下面两个属性是它的**只读派生投影**，迁移期语义与单会话时代逐字等价。
      */
-    val registry: SessionRegistry = SessionRegistry(ssh, scope)
+    val registry: SessionRegistry = SessionRegistry(ssh, scope, resourcesFactory = resourcesFactory)
 
     /** 活动会话的连接状态（投影；无活动会话即未连接）。 */
     val connection: ConnectionState get() = registry.active?.state ?: ConnectionState.Disconnected

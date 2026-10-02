@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.barezen.ssh.app.AppModel
 import com.barezen.ssh.app.Destination
+import com.barezen.ssh.app.JvmSessionResources
 import com.barezen.ssh.servers.FileForwardRuleStore
 import com.barezen.ssh.ssh.forward.ForwardManager
 import com.barezen.ssh.ssh.sftp.SftpModel
@@ -63,10 +64,8 @@ import com.barezen.ssh.ui.screens.ServersScreen
 import com.barezen.ssh.ui.screens.SettingsScreen
 import com.barezen.ssh.ui.screens.TerminalScreen
 import com.barezen.ssh.ui.theme.focusRing
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 
 /**
  * 应用外壳：200px 可折叠侧边导航（设计包「外壳/侧边导航」）+ 右侧内容区路由。
@@ -160,47 +159,37 @@ private fun FilesHost(model: AppModel) {
 }
 
 /**
- * 端口转发页接线：跟随**活动会话**创建 [ForwardManager]（隧道工厂走该会话）并自动启用
- * 标记为「连接时自动启用」的已保存规则；会话切走或断开时关闭全部活动隧道。
+ * 端口转发页接线：只**订阅**活动会话的 [ForwardManager] 并驱动自动启用，不创建也不释放它。
  *
- * key 用会话 id 而非布尔 connected，理由同 [FilesHost]。
+ * 隧道所有权在**会话**（[JvmSessionResources]，设计 §3.4 方案 A）而不是 Host：Host 随标签切换
+ * 重新组合，若由 Host 持有 manager，用户切走标签就会把正在使用的隧道一起关掉。因此这里
+ * **没有** DisposableEffect + closeAll——Host 销毁不等于隧道销毁，释放统一由 [SessionRegistry]
+ * 在关闭标签/断开时执行（「关闭即释放、不保活」）。
  *
- * 注意：隧道所有权仍在 Host（切走即 closeAll）——上移到 SessionResources 是第 4 刀的事，
- * 本刀只做「按会话 id 订阅」这一层，释放语义保持原状。
+ * managerFlow 仍是 StateFlow：会话尚未连上（Connecting/Failed/无会话）时为 null，
+ * PortsScreen 据此呈现禁用态；这与「非活动会话不参与渲染」的既有语义一致。
  */
 @Composable
 private fun PortsHost(model: AppModel) {
     val active = model.registry.active
     val scope = rememberCoroutineScope()
-    var managerFlow by remember {
-        mutableStateOf<StateFlow<ForwardManager?>>(MutableStateFlow(null))
+
+    // 资源没变就不重建 flow：切走再切回拿到的是同一个 JvmSessionResources 实例，
+    // 故 PortsModel.liveEntries（flatMapLatest）不会因切换而重新订阅、活动转发列表不丢。
+    val resources = active?.resources as? JvmSessionResources
+    val managerFlow = remember(resources) {
+        MutableStateFlow<ForwardManager?>(resources?.forwardManager)
     }
 
-    LaunchedEffect(active?.id) {
-        val session = active?.session
-        if (active != null && session != null) {
-            val manager = ForwardManager { spec -> session.startForward(spec) }
-            val flow = MutableStateFlow<ForwardManager?>(manager)
-            managerFlow = flow
-            autoStartRules(scope, flow)
-        } else {
-            managerFlow.value?.closeAll()
-            managerFlow = MutableStateFlow(null)
-        }
-    }
-    DisposableEffect(Unit) {
-        onDispose { managerFlow.value?.closeAll() }
+    // 自动启用只在**会话首次**进入活动态时执行一次（JvmSessionResources 自己记账）：
+    // 该会话已被用户手动关掉的转发，不得因切回标签而被重新打开（安全敏感，设计 §3.4）。
+    LaunchedEffect(resources) {
+        resources?.ensureAutoStartApplied { FileForwardRuleStore().list().filter { it.autoStart } }
     }
     PortsScreen(model = PortsModel(scope = scope, managerFlow = managerFlow))
 }
 
-/** 自动启用 autoStart 规则：规则仓库为文件存储，新实例读到的即已保存数据。 */
-private fun autoStartRules(scope: CoroutineScope, flow: StateFlow<ForwardManager?>) {
-    val manager = flow.value ?: return
-    val rules = FileForwardRuleStore().list().filter { it.autoStart }
-    if (rules.isEmpty()) return
-    scope.launch { manager.applyAll(rules) }
-}
+
 
 /** 侧边导航：展开 200dp / 折叠 56dp，surface 底、右缘 1dp borderSubtle 竖线；不渲染 badge（非目标）。 */
 @Composable
