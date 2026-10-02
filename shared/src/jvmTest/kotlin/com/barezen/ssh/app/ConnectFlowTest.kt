@@ -108,6 +108,10 @@ class ConnectFlowTest {
         })
         setContent { BareZenTheme { BareZenAppContent(model = m) } }
         m.requestConnect(web01)                       // 弹认证对话框
-        onNodeWithText("密码仅保存在内存中，不会写入本地文件。").assertIsDisplayed()
+        // 壳层默认注入 NoopCredentialResolver（isAvailable=false）→ 本地址落「钥匙串不可用」分支：
+        // 不出现「记住凭据」勾选框，安全说明改为不保存口径（默认注入下仍与「不写入本地文件」同义）。
+        onNodeWithText("系统钥匙串不可用，凭据不会保存").assertIsDisplayed()
+        assertTrue(onAllNodesWithText("记住凭据").fetchSemanticsNodes().isEmpty())
+        onNodeWithText("密码仅保存在内存中；本机钥匙串不可用，凭据不会保存。").assertIsDisplayed()
     }
 }

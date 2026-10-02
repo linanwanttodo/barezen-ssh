@@ -104,13 +104,27 @@ fun BareZenAppContent(model: AppModel) {
         }
     }
 
-    // 连接确认对话框：确认 → confirmConnect（内部委托 startConnect 主路径），取消 → 关闭
+    // 钥匙串预填：每个待连接服务器解析一次。**必须放在 LaunchedEffect 里**——
+    // 底层 secret-tool 是同步阻塞子进程且无超时（Linux 可能弹解锁框），放进重组路径会冻死 UI。
+    // key 用 server.id：切换待连接目标时重新解析，避免沿用上一台的凭据。
+    val pendingServerId = model.pendingConnect?.id
+    LaunchedEffect(pendingServerId) { model.initializePendingCredential() }
+
+    // 连接确认对话框：确认 → confirmConnect（内部委托 startConnect 主路径），取消 → 关闭。
+    // 「记住凭据」勾选时先写入钥匙串再连接——未勾选则绝不落盘（安全红线）。
     model.pendingConnect?.let { server ->
         ConnectDialog(
             server = server,
             hideAddresses = model.settings.settings.hideAddresses,
-            onResult = { auth ->
-                if (auth != null) model.confirmConnect(auth) else model.dismissConnect()
+            prefill = model.pendingPrefill,
+            keychainAvailable = model.keychainAvailable,
+            onResult = { auth, remember ->
+                if (auth != null) {
+                    if (remember) model.credentials.remember(server, auth)
+                    model.confirmConnect(auth)
+                } else {
+                    model.dismissConnect()
+                }
             },
         )
     }

@@ -66,13 +66,37 @@ class AppModel(
         credentials.forget(id)
     }
 
-    /** 该服务器是否已有可用凭据（钥匙串可用且存在条目）——连接流程据此决定是否免输入。 */
+    /**
+     * 该服务器是否已有可用凭据（钥匙串可用且存在条目）——连接流程据此决定是否免输入。
+     *
+     * 注意：底层平台钥匙串是**同步阻塞子进程且无超时**（Linux 下 secret-tool 可能弹出解锁
+     * 提示框长时间不返回），故禁止在 Composable 重组路径里调用本方法；请改用
+     * [initializePendingCredential]（单次、挂在 LaunchedEffect 上）。
+     */
     fun hasStoredCredential(server: Server): Boolean =
         credentials.isAvailable() && credentials.load(server) != null
 
+    /** 待连接服务器的钥匙串预填值；null＝无预填（尚未解析或钥匙串无条目）。 */
+    var pendingPrefill: AuthMethod? by mutableStateOf(null)
+        private set
+
+    /** 平台钥匙串当前是否可用（供 UI 决定显示「记住凭据」还是不可用提示）。 */
+    val keychainAvailable: Boolean get() = credentials.isAvailable()
+
+    /**
+     * 解析 [pendingConnect] 在钥匙串中的预填凭据（每个待连接服务器只应调用一次）。
+     *
+     * 必须在 LaunchedEffect 等协程上下文中调用——见 [hasStoredCredential] 的阻塞说明。
+     * 未连接目标或无条目时置 null，调用方按「无预填」处理。
+     */
+    fun initializePendingCredential() {
+        val server = pendingConnect
+        pendingPrefill = if (server == null) null else credentials.load(server)
+    }
+
     /** 卡片「连接」/「新建终端」入口：弹出连接确认对话框。 */
     fun requestConnect(server: Server) { pendingConnect = server }
-    fun dismissConnect() { pendingConnect = null }
+    fun dismissConnect() { pendingConnect = null; pendingPrefill = null }
     /** 确认认证后委托 [startConnect]（内部主路径，免对话框的直连入口）。 */
     fun confirmConnect(auth: AuthMethod) {
         val server = pendingConnect ?: return

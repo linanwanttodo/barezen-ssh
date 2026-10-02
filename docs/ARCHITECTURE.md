@@ -70,11 +70,13 @@ MetricsCollector（轮询协程，默认 5s，StateFlow<MetricsSnapshot?>）
 
 ### 3.4 凭据（能力已建，接入待办 T-1）
 
-`CredentialStore`（jvmMain `credentials/`）：`save/load/delete/isAvailable`，id 约定 `server/<serverId>/password|keypass`。平台实现：GnomeKeyringStore（secret-tool 子进程，进程注入可测）、MacKeychainStore（security 子进程）、WindowsCredStore（bridge 注入，真实调用待 JNA 依赖）、InMemory 降级。**当前未接入连接流程**（ROADMAP T-1）。
+`CredentialStore`（jvmMain `credentials/`）：`save/load/delete/isAvailable`，id 约定 `server/<serverId>/password|keypass`。平台实现：GnomeKeyringStore（secret-tool 子进程，进程注入可测）、MacKeychainStore（security 子进程）、WindowsCredStore（bridge 注入，真实调用待 JNA 依赖）、InMemory 降级。**已接入连接流程**（T-1）：commonMain 侧为 `CredentialResolver` 端口（`NoopCredentialResolver` 默认＝不落盘），jvmMain 侧为 `KeychainCredentialResolver`（`platformDefault()` 工厂；keyPath 恒取自 Server.auth，钥匙串只供口令；`isAvailable` 区分真钥匙串与内存降级）。`AppModel.removeServer` 同步 `forget` 清理。**壳层尚未注入该工厂**（仍走 Noop），待 T-2 真机验证时接上。
 
 ### 3.5 持久化契约（三处同构）
 
-设置 `FileSettingsRepository`、服务器 `FileServerRepository`、转发规则 `ForwardRuleStore`：原子写（`.tmp` + `Files.move`）、损坏隔离（`*.corrupt-<epochMillis>`）、`coerceInputValues` 容错。新增文件持久化照抄此模式。
+设置 `FileSettingsRepository`、服务器 `FileServerRepository`、转发规则 `ForwardRuleStore`：原子写（`.tmp` + `Files.move`）、损坏隔离（`*.corrupt-<epochMillis>`）、容错。新增文件持久化照抄此模式。
+
+注：`coerceInputValues` 仅 `FileSettingsRepository` 与 `ForwardRuleStore` 具备，`FileServerRepository` 当前只有 `ignoreUnknownKeys`（三处中唯一例外，见 STATUS 技术债）；补齐前 Server 的旧 JSON 遇到未知判别值会整体读空并隔离。
 
 ## 4. 混编语言边界
 
