@@ -48,9 +48,17 @@ class SettingsScreenTest {
     }
 
     @OptIn(ExperimentalTestApi::class)
-    @Test fun appearanceLightThemeOptionIsDisabled() = runComposeUiTest {
+    @Test fun appearanceLightThemeOptionIsEnabled() = runComposeUiTest {
         setContent { BareZenTheme { SettingsScreen(model()) } }
-        onNodeWithText("浅色（未实现）").assertIsNotEnabled()
+        onNodeWithText("浅色").assertIsEnabled()
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun appearanceLightThemeSelectionUpdatesModel() = runComposeUiTest {
+        val m = model()
+        setContent { BareZenTheme { SettingsScreen(m) } }
+        onNodeWithText("浅色").performClick()
+        assertEquals(com.barezen.ssh.settings.Theme.LIGHT, m.settings.settings.theme)
     }
 
     @OptIn(ExperimentalTestApi::class)

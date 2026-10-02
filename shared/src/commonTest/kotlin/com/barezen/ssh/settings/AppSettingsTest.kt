@@ -50,6 +50,12 @@ class AppSettingsTest {
         assertEquals(original, decoded)
     }
 
+    @Test fun lightThemeRoundTrips() {
+        val original = AppSettings.Default.copy(theme = Theme.LIGHT)
+        val decoded = json.decodeFromString<AppSettings>(json.encodeToString(original))
+        assertEquals(Theme.LIGHT, decoded.theme)
+    }
+
     @Test fun unknownKeysAreIgnored() {
         val text = """{"schemaVersion":1,"theme":"DARK","futureField":"whatever"}"""
         val decoded = json.decodeFromString<AppSettings>(text)

@@ -4,13 +4,10 @@ package com.barezen.ssh.settings
 import kotlinx.serialization.Serializable
 
 /**
- * 主题。
- *
- * **故意不含 LIGHT** —— 浅色板尚未实现，持久化层不得持有一个不可能的值。
- * UI 上「浅色」渲染为禁用项，等浅色板落地时再加枚举分支。
+ * 主题。LIGHT 随浅色板（DBX 派生）一同启用；FOLLOW_SYSTEM 按系统深浅色解析。
  */
 @Serializable
-enum class Theme { DARK, FOLLOW_SYSTEM }
+enum class Theme { DARK, LIGHT, FOLLOW_SYSTEM }
 
 @Serializable
 enum class UpdateChannel { STABLE, PREVIEW }

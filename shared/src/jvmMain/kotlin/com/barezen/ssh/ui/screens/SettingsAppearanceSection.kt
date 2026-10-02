@@ -11,24 +11,24 @@ fun AppearanceSettingsSection(settings: SettingsModel) {
     val s = settings.settings
 
     SettingsSectionScaffold("外观") {
-        // 主题：三选项，「浅色」禁用 —— 浅色板尚未实现，不给假选项（不造数红线）
-        val themeLabels = listOf("跟随系统", "深色", "浅色（未实现）")
+        // 主题：三选项（跟随系统 / 深色 / 浅色），全部可选
+        val themeLabels = listOf("跟随系统", "深色", "浅色")
         val themeIndex = when (s.theme) {
             Theme.FOLLOW_SYSTEM -> 0
             Theme.DARK -> 1
+            Theme.LIGHT -> 2
         }
         ChoiceRow(
             title = "主题",
-            desc = "跟随系统在浅色主题实现前等同于深色",
+            desc = "跟随系统按系统深浅色自动切换",
             options = themeLabels,
             selectedIndex = themeIndex,
             enabled = true,
-            disabledIndices = setOf(2),
             onSelect = { i ->
-                // i == 2（浅色）为禁用项，正常点不到；这里也防御性忽略
                 when (i) {
                     0 -> settings.update { it.copy(theme = Theme.FOLLOW_SYSTEM) }
                     1 -> settings.update { it.copy(theme = Theme.DARK) }
+                    2 -> settings.update { it.copy(theme = Theme.LIGHT) }
                 }
             },
         )
