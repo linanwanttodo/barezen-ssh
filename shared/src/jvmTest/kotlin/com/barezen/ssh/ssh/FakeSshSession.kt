@@ -3,6 +3,7 @@ package com.barezen.ssh.ssh
 
 /** 测试用 SshSession：记录 exec 调用，按 handler 返回预设结果（不依赖 sshj）。 */
 class FakeSshSession(
+    private val sftpFactory: (() -> SftpFs)? = null,
     var handler: (String) -> ExecResult = { ExecResult(0, "", "") },
 ) : SshSession {
     val execCalls = mutableListOf<String>()
@@ -22,7 +23,7 @@ class FakeSshSession(
     override fun startShell(onData: (ByteArray) -> Unit, onClosed: (Throwable?) -> Unit): ShellChannel =
         error("unused in metrics tests")
 
-    override fun newSftp(): SftpFs = error("FakeSshSession 未配置 SFTP")
+    override fun newSftp(): SftpFs = sftpFactory?.invoke() ?: error("FakeSshSession 未配置 SFTP")
 
     override fun startForward(spec: ForwardSpec): ForwardTunnel = error("FakeSshSession 未配置转发")
 

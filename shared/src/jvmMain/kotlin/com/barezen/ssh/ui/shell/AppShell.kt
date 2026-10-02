@@ -31,10 +31,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,14 +50,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.barezen.ssh.app.AppModel
 import com.barezen.ssh.app.Destination
+import com.barezen.ssh.servers.FileForwardRuleStore
+import com.barezen.ssh.ssh.ConnectionState
+import com.barezen.ssh.ssh.forward.ForwardManager
+import com.barezen.ssh.ssh.sftp.SftpModel
+import com.barezen.ssh.ssh.sftp.TransferStatus
 import com.barezen.ssh.ui.screens.ConnectDialog
 import com.barezen.ssh.ui.screens.DashboardHost
 import com.barezen.ssh.ui.screens.FilesScreen
 import com.barezen.ssh.ui.screens.PortsScreen
+import com.barezen.ssh.ui.screens.PortsModel
 import com.barezen.ssh.ui.screens.ServersScreen
 import com.barezen.ssh.ui.screens.SettingsScreen
 import com.barezen.ssh.ui.screens.TerminalScreen
 import com.barezen.ssh.ui.theme.focusRing
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 /**
  * 应用外壳：200px 可折叠侧边导航（设计包「外壳/侧边导航」）+ 右侧内容区路由。
@@ -84,8 +97,8 @@ fun BareZenAppContent(model: AppModel) {
                     onOpenFiles = { model.navigate(Destination.FILES) },
                 )
                 Destination.TERMINAL -> TerminalScreen(model)
-                Destination.FILES -> FilesScreen()
-                Destination.PORTS -> PortsScreen()
+                Destination.FILES -> FilesHost(model)
+                Destination.PORTS -> PortsHost(model)
                 Destination.SETTINGS -> SettingsScreen(model)
             }
         }
@@ -104,6 +117,68 @@ fun BareZenAppContent(model: AppModel) {
 
     // 连接中/失败覆盖层：与 ConnectDialog 同为壳级挂载（Task 8 重写壳时原样迁移这两行）
     ConnectFlowOverlays(model)
+}
+
+/**
+ * 文件页接线（参照 DashboardHost 范式）：连接后以当前会话创建 [SftpModel]（fsFactory 惰性建 SFTP），
+ * 断开时取消未完成传输并释放。未连接传 null，FilesScreen 呈现整屏禁用态。
+ */
+@Composable
+private fun FilesHost(model: AppModel) {
+    val connected = model.connection is ConnectionState.Connected
+    val scope = rememberCoroutineScope()
+    var sftpModel by remember { mutableStateOf<SftpModel?>(null) }
+
+    LaunchedEffect(connected) {
+        val session = model.shellSession
+        if (connected && session != null) {
+            sftpModel = SftpModel(scope, fsFactory = { session.newSftp() })
+        } else {
+            sftpModel?.transfers?.value
+                ?.filter { it.status == TransferStatus.Running }
+                ?.forEach { sftpModel?.cancel(it.id) }
+            sftpModel = null
+        }
+    }
+    FilesScreen(model = sftpModel)
+}
+
+/**
+ * 端口转发页接线：连接后创建 [ForwardManager]（隧道工厂走当前会话）并自动启用
+ * 标记为「连接时自动启用」的已保存规则；断开时关闭全部活动隧道。
+ */
+@Composable
+private fun PortsHost(model: AppModel) {
+    val connected = model.connection is ConnectionState.Connected
+    val scope = rememberCoroutineScope()
+    var managerFlow by remember {
+        mutableStateOf<StateFlow<ForwardManager?>>(MutableStateFlow(null))
+    }
+
+    LaunchedEffect(connected) {
+        val session = model.shellSession
+        if (connected && session != null) {
+            val manager = ForwardManager { spec -> session.startForward(spec) }
+            val flow = MutableStateFlow<ForwardManager?>(manager)
+            managerFlow = flow
+            autoStartRules(scope, flow)
+        } else {
+            managerFlow.value?.closeAll()
+            managerFlow = MutableStateFlow(null)
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose { managerFlow.value?.closeAll() }
+    }
+    PortsScreen(model = PortsModel(scope = scope, managerFlow = managerFlow))
+}
+
+/** 自动启用 autoStart 规则：规则仓库为文件存储，新实例读到的即已保存数据。 */
+private fun autoStartRules(scope: CoroutineScope, flow: StateFlow<ForwardManager?>) {
+    val manager = flow.value ?: return
+    val rules = FileForwardRuleStore().list().filter { it.autoStart }
+    if (rules.isEmpty()) return
+    scope.launch { manager.applyAll(rules) }
 }
 
 /** 侧边导航：展开 200dp / 折叠 56dp，surface 底、右缘 1dp borderSubtle 竖线；不渲染 badge（非目标）。 */

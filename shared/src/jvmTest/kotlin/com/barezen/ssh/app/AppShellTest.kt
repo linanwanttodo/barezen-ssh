@@ -30,7 +30,7 @@ class AppShellTest {
         onNodeWithText("终端").performClick()
         onNodeWithText("在服务器列表选择「新建终端」以开始。").assertIsDisplayed()
         onNodeWithText("文件").performClick()
-        onNodeWithText("传输队列占位（M2）").assertIsDisplayed()
+        onNodeWithText("连接后可管理文件").assertIsDisplayed()
         onNodeWithText("设置").performClick()
         // 设置屏默认落在「外观」分类（本任务该分类为过渡空壳，真实内容在后续任务落地）
         onNodeWithText("外观").assertIsDisplayed()
