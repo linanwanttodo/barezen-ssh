@@ -255,7 +255,13 @@ private class JvmSftpFs(private val sftp: SFTPClient) : SftpFs {
             var offset = 0L
             while (true) {
                 val chunk = nextChunk(offset) ?: break
-                if (chunk.isEmpty()) continue
+                // 空块是契约违例（约定用 null 表示结束）。此处**必须抛错而不是 continue**：
+                // continue 不推进 offset，回调会永远返回同一个空块，形成 100% CPU 忙等，
+                // 表现为上传进程既不结束也无异常、文件大小停留在上一次写入的位置。
+                // 宁可让任务显式失败，也不要把线程钉死。
+                check(chunk.isNotEmpty()) {
+                    "上传回调在 offset=$offset 返回空块；结束必须以 null 表示"
+                }
                 rf.write(offset, chunk, 0, chunk.size)
                 offset += chunk.size
             }

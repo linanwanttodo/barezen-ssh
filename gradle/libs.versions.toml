@@ -30,6 +30,8 @@ jediterm-ui = { module = "org.jetbrains.jediterm:jediterm-ui", version.ref = "je
 # jediterm-ui 的 Gradle metadata 把 core 放在 runtimeElements（编译期不可见），需显式声明
 jediterm-core = { module = "org.jetbrains.jediterm:jediterm-core", version.ref = "jediterm" }
 sshd-core = { module = "org.apache.sshd:sshd-core", version.ref = "sshd" }
+# 测试用嵌入式 SFTP 子系统：让 SFTP 走真实 sshj 传输路径（无此依赖时 sshd-core 只提供 exec/shell）
+sshd-sftp = { module = "org.apache.sshd:sshd-sftp", version.ref = "sshd" }
 slf4j-nop = { module = "org.slf4j:slf4j-nop", version.ref = "slf4j" }
 compose-uiTest = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "composeMultiplatform" }
 compose-materialIcons-extended = { module = "org.jetbrains.compose.material:material-icons-extended", version = "1.7.3" }

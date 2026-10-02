@@ -36,6 +36,7 @@ kotlin {
         }
         jvmTest.dependencies {
             implementation(libs.sshd.core)
+            implementation(libs.sshd.sftp)
             // 测试期静音 SLF4J “No SLF4J providers were found” 噪声，保持测试输出干净
             implementation(libs.slf4j.nop)
             implementation(compose.desktop.currentOs)
