@@ -109,10 +109,10 @@ fun TerminalScreen(model: AppModel) {
         Box(Modifier.fillMaxWidth().weight(1f)) {
             // 先解到快照再分派：Connected 分支需要整个 SessionSnapshot（id 用于失败回传、session 用于挂终端）
             when (val snapshot = active) {
-                null -> Cta("在服务器列表选择「新建终端」以开始。")
+                null -> EmptyHint(Icons.Outlined.Terminal, "在服务器列表选择「新建终端」以开始。", Modifier.fillMaxSize())
                 else -> when (val st = snapshot.state) {
                     // 无活动会话与显式断开是同一档呈现（都是「没有可用的终端会话」），文案不分叉
-                    is ConnectionState.Disconnected -> Cta("在服务器列表选择「新建终端」以开始。")
+                    is ConnectionState.Disconnected -> EmptyHint(Icons.Outlined.Terminal, "在服务器列表选择「新建终端」以开始。", Modifier.fillMaxSize())
                     is ConnectionState.Connecting -> ConnectingPane(st)
                     is ConnectionState.Failed -> FailedPane(st) { model.requestConnect(st.server) }
                     is ConnectionState.Connected -> ConnectedPane(model, snapshot)
@@ -265,14 +265,6 @@ private fun RestartNotice() {
     }
 }
 
-/** 居中提示文案（未连接 CTA 与「会话缺席」占位共用）。 */
-@Composable
-private fun Cta(text: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
 /** 连接中：水平居中 spin 圆环 + 「正在连接 {name}…」。 */
 @Composable
 private fun ConnectingPane(state: ConnectionState.Connecting) {
@@ -320,8 +312,11 @@ private fun FailedPane(state: ConnectionState.Failed, onRetry: () -> Unit) {
 private fun ConnectedPane(model: AppModel, snapshot: SessionSnapshot) {
     val session = snapshot.session
     if (session == null) {
-        // Connected 而会话缺席（测试直注状态 / 会话刚被收口）：给占位而非崩溃
-        Cta("正在启动终端…")
+        // Connected 而会话缺席（测试直注状态 / 会话刚被收口）：给占位而非崩溃。
+        // 这是过渡态提示而非空态，不用 EmptyHint（无图标语境）。
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("正在启动终端…", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         return
     }
     // startShell 在 TerminalView 的 DisposableEffect 体内执行（effect 阶段，组合期 try/catch 够不着）：

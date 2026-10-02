@@ -1,5 +1,5 @@
 // shared/src/commonMain/kotlin/com/barezen/ssh/ui/theme/Color.kt
-// DBX 设计令牌（dark 段权威值见 github.com/t8y2/dbx apps/desktop/src/styles/tokens.css），
+// DBX 设计令牌（dark 段权威值见 github.com/t8y2/dbx apps/desktop/src/styles/tokens.css；2026-10-02 用户截图终审后 UI 收敛为黑白灰，见 STATUS 3.4），
 // 亮色板从同一色相派生；语义背景为带 alpha 的 tint，渲染时合成在 surface 上。
 package com.barezen.ssh.ui.theme
 
@@ -20,9 +20,13 @@ val BareZenOnAccent = Color(0xFF1B1B1E)
 val BareZenAccentSubtle = Color(0x1AFFFFFF)    // 白色 10% alpha
 val BareZenError = Color(0xFFF3625F)           // = dbx --destructive rgb(243 98 95)
 val BareZenErrorBg = Color(0x26F3625F)         // destructive 15% alpha（AA 合成后 4.51:1）
+@Deprecated(message = "配色终审（STATUS 3.4）：UI 仅黑/白/灰，红色 0xFFF3625F 为唯一保留语义色；此彩色令牌不再被 UI 消费，仅为兼容保留，禁止新消费。", level = DeprecationLevel.WARNING)
 val BareZenWarning = Color(0xFFFBBF24)         // = dbx --warning rgb(251 191 36)
+@Deprecated(message = "配色终审（STATUS 3.4）：UI 仅黑/白/灰；此彩色令牌不再被 UI 消费，仅为兼容保留，禁止新消费。", level = DeprecationLevel.WARNING)
 val BareZenWarningBg = Color(0x26FBBF24)
+@Deprecated(message = "配色终审（STATUS 3.4）：UI 仅黑/白/灰；此彩色令牌不再被 UI 消费，仅为兼容保留，禁止新消费。", level = DeprecationLevel.WARNING)
 val BareZenInfo = Color(0xFF60A5FA)            // = dbx --info rgb(96 165 250)
+@Deprecated(message = "配色终审（STATUS 3.4）：UI 仅黑/白/灰；此彩色令牌不再被 UI 消费，仅为兼容保留，禁止新消费。", level = DeprecationLevel.WARNING)
 val BareZenInfoBg = Color(0x2660A5FA)
 val BareZenTerminalBg = Color(0xFF1E1E1E)      // 终端背景（Task 3 注入 JediTerm）
 
@@ -40,5 +44,7 @@ val BareZenLightAccent = Color(0xFF3A3A40)
 val BareZenLightOnAccent = Color(0xFFFFFFFF)
 val BareZenLightAccentSubtle = Color(0x0F000000) // 黑色 6% alpha
 val BareZenLightErrorBg = Color(0x29F3625F)
+@Deprecated(message = "配色终审（STATUS 3.4）：UI 仅黑/白/灰；此彩色令牌不再被 UI 消费，仅为兼容保留，禁止新消费。", level = DeprecationLevel.WARNING)
 val BareZenLightWarningBg = Color(0x29FBBF24)
+@Deprecated(message = "配色终审（STATUS 3.4）：UI 仅黑/白/灰；此彩色令牌不再被 UI 消费，仅为兼容保留，禁止新消费。", level = DeprecationLevel.WARNING)
 val BareZenLightInfoBg = Color(0x2960A5FA)

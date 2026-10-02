@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -310,11 +311,7 @@ fun PortsScreen(model: PortsModel = PortsModel(scope = rememberCoroutineScope())
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     if (rules.isEmpty()) {
-                        Text(
-                            "暂无转发规则。添加后规则会保存在本机，下次连接可直接启用。",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        EmptyHint(Icons.Outlined.SwapHoriz, "暂无转发规则。添加后规则会保存在本机，下次连接可直接启用。")
                     } else {
                         rules.forEach { rule ->
                             ForwardRuleRow(

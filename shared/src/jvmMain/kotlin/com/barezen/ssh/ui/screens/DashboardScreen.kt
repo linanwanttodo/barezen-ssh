@@ -244,19 +244,8 @@ private fun ChartCard(
                 contentAlignment = Alignment.Center,
             ) {
                 if (empty) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Outlined.Insights,
-                            contentDescription = null,
-                            modifier = Modifier.size(28.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                        )
-                        Text(
-                            emptyText,
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    // 统一空态组件（STATUS 3.4 终审形态：28dp 弱图标 + 一句话）
+                    EmptyHint(Icons.Outlined.Insights, emptyText)
                 } else {
                     content()
                 }

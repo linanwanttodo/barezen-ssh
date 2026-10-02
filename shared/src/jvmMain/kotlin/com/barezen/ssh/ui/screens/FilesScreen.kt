@@ -1,7 +1,10 @@
 // shared/src/jvmMain/kotlin/com/barezen/ssh/ui/screens/FilesScreen.kt
 package com.barezen.ssh.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +40,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -102,9 +106,9 @@ fun FilesScreen(
     var pendingRename by remember { mutableStateOf<SftpEntry?>(null) }
 
     Column(Modifier.fillMaxSize()) {
-        // 屏头（通用式样：56dp、horizontal 24）
+        // 屏头（行密度收紧至 48dp 档，STATUS 3.4 终审）
         Row(
-            Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 24.dp),
+            Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 24.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("文件传输", style = MaterialTheme.typography.titleLarge)
@@ -168,22 +172,14 @@ fun FilesScreen(
                 Modifier.fillMaxWidth().weight(1f),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    "连接后可管理文件",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                EmptyHint(Icons.Outlined.Folder, "连接后可管理文件")
             }
         } else if (state.entries.isEmpty() && !state.loading) {
             Box(
                 Modifier.fillMaxWidth().weight(1f),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    "空目录",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                EmptyHint(Icons.Outlined.InsertDriveFile, "空目录")
             }
         } else {
             LazyColumn(Modifier.fillMaxWidth().weight(1f).padding(horizontal = 24.dp)) {
@@ -261,10 +257,20 @@ private fun EntryRow(
     onDelete: () -> Unit,
     onRename: () -> Unit,
 ) {
+    // 行密度收紧至 48dp 档；hover 用 surfaceContainerHigh（STATUS 3.4 终审）
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
     Row(
-        Modifier.fillMaxWidth()
-            .clickable(enabled = entry.isDirectory) { model.enter(entry.name) }
-            .padding(horizontal = 8.dp, vertical = 10.dp),
+        Modifier.fillMaxWidth().height(48.dp)
+            .background(
+                if (hovered) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent,
+            )
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                enabled = entry.isDirectory,
+            ) { model.enter(entry.name) }
+            .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -293,6 +299,7 @@ private fun EntryRow(
             mtimeFormat.format(Date(entry.mtimeMs)),
             Modifier.width(120.dp),
             fontSize = 12.sp,
+            style = BareZenMonoBody,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.width(8.dp))

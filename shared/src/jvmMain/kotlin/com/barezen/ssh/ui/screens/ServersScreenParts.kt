@@ -5,6 +5,10 @@ package com.barezen.ssh.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,6 +44,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -249,9 +254,15 @@ internal fun ServerCard(
         else -> "已连接"
     }
 
+    // hover 高亮（STATUS 3.4 终审：hover 用 surfaceContainerHigh）
+    val cardInteraction = remember { MutableInteractionSource() }
+    val cardHovered by cardInteraction.collectIsHoveredAsState()
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier
+            .fillMaxWidth()
+            .hoverable(cardInteraction),
+        color = if (cardHovered) MaterialTheme.colorScheme.surfaceContainerHigh
+        else MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
@@ -331,19 +342,26 @@ internal fun ServerCard(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier
-                        .size(8.dp)
-                        .background(
-                            // 状态点二值：已连接 primary，其余中性——失败不再染红此点。
-                            // 理由：失败是**会话**的属性；本卡的「已连接」判定问的是"该机器是否有
-                            // 连接会话"，若同时把失败态涂在点上，会出现「红点 + 已连接」的自相矛盾
-                            // （同一台机器一条会话失败、另一条正常）。失败在终端屏与横幅上如实呈现。
-                            if (isUp) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            CircleShape,
-                        )
-                )
+                // 状态点（配色终审 STATUS 3.4）：不靠颜色靠形状——
+                // 已连接 = 实心亮灰圆点（primary 即 0xFFD0D0D6）；未连接 = 空心描边圆点（outline）。
+                // 理由：失败是**会话**的属性；本卡的「已连接」判定问的是"该机器是否有
+                // 连接会话"，若同时把失败态涂在点上，会出现「红点 + 已连接」的自相矛盾
+                // （同一台机器一条会话失败、另一条正常）。失败在终端屏与横幅上如实呈现。
+                if (isUp) {
+                    Box(
+                        Modifier
+                            .testTag("server-status-dot-connected")
+                            .size(8.dp)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape),
+                    )
+                } else {
+                    Box(
+                        Modifier
+                            .testTag("server-status-dot-disconnected")
+                            .size(8.dp)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
+                    )
+                }
                 Spacer(Modifier.width(8.dp))
                 // 状态行二分支：已连接（带延迟或条数）/ 未连接——颜色之外必有文字冗余
                 Text(
