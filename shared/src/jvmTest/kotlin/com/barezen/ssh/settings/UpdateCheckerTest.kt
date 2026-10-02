@@ -43,6 +43,17 @@ class UpdateCheckerTest {
         assertIs<UpdateResult.UpToDate>(c.check("a/b", UpdateChannel.STABLE, "0.1.0"))
     }
 
+    @Test fun v1_0_0AgainstSameTagIsUpToDate() = runBlocking<Unit> {
+        val c = UpdateChecker { releases("""{"tag_name":"v1.0.0","prerelease":false,"draft":false,"html_url":"u"}""") }
+        assertIs<UpdateResult.UpToDate>(c.check("linanwanttodo/barezen-ssh", UpdateChannel.STABLE, "1.0.0"))
+    }
+
+    @Test fun v1_0_0AgainstNewerTagOffersUpdate() = runBlocking<Unit> {
+        val c = UpdateChecker { releases("""{"tag_name":"v1.0.1","prerelease":false,"draft":false,"html_url":"u"}""") }
+        val r = assertIs<UpdateResult.NewerAvailable>(c.check("linanwanttodo/barezen-ssh", UpdateChannel.STABLE, "1.0.0"))
+        assertEquals("1.0.1", r.latest)
+    }
+
     @Test fun olderVersionIsUpToDate() = runBlocking<Unit> {
         val c = UpdateChecker { releases("""{"tag_name":"v0.0.9","prerelease":false,"draft":false,"html_url":"u"}""") }
         assertIs<UpdateResult.UpToDate>(c.check("a/b", UpdateChannel.STABLE, "0.1.0"))

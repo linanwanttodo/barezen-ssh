@@ -32,7 +32,7 @@ class AppSettingsTest {
         assertNull(d.autoConnectServerId)
         assertEquals(false, d.hideAddresses)
         assertEquals(ConflictPolicy.ASK, d.conflictPolicy)
-        assertNull(d.updateRepo)
+        assertEquals("linanwanttodo/barezen-ssh", d.updateRepo)
         assertEquals(UpdateChannel.STABLE, d.updateChannel)
         assertEquals(false, d.autoCheckUpdates)
         assertNull(d.feedbackUrl)

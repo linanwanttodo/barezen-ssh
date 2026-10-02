@@ -52,8 +52,8 @@ data class AppSettings(
     // API key 不在此处：只存钥匙串（AiKeyStore），绝不落 settings.json。
     val aiEndpoint: String = "",
     val aiModel: String = "",
-    // 更新
-    val updateRepo: String? = null,
+    // 更新（默认官方发布仓库；清空即回到「未配置，零请求」）
+    val updateRepo: String? = "linanwanttodo/barezen-ssh",
     val updateChannel: UpdateChannel = UpdateChannel.STABLE,
     val autoCheckUpdates: Boolean = false,
     // 关于

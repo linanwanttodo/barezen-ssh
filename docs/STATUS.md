@@ -96,6 +96,13 @@
 - 打包：`desktopApp:packageDistributionForCurrentOS` 实际构建成功，产出 `desktopApp/build/compose/binaries/main/deb/barezen-ssh_1.0.0_amd64.deb`（`dpkg-deb -I` 核对 Version: 1.0.0）；`nativeDistributions.includeAllModules = true`（jpackage 模块清单）；Dmg/Msi 格式已配置但需各自平台验证。
 - README 重写：项目简介、功能一览、运行/打包/测试命令、文档索引、已知限制（钥匙串真机、远端转发拓扑、AI BYOK 前置）。
 
+## 1.17 批次 A：发布通道上线（2026-10-02，见本批提交）
+
+- 远端仓库 `linanwanttodo/barezen-ssh`（公开）建成：master 首推 + tag `v1.0.0`；GitHub Release v1.0.0 挂 deb 资产（144MB），Release 说明中文无 emoji。
+- UpdateChecker 对账：真实 releases API 复算「当前已是最新版」路径通过（v1.0.0 → NOT_NEWER）；版本比较补 1.0.0 当前版本的相等/更新两用例。
+- 默认更新源改为官方仓库（开箱即用「立即检查」）；清空输入框即回到「未配置，零请求」并显示引导（UI 测试改用 performTextClearance 锁定该路径）。
+- 门禁 559/0（+3）。设置页引导文案随默认值自动生效，无额外改动。
+
 ## 1.16 v1.0 收官批次四：终审（2026-10-02，见本批提交）
 
 - `--rerun-tasks` 全量门禁：`:desktopApp:compileKotlin` + `:shared:jvmTest` → **556 用例 / 0 失败**。

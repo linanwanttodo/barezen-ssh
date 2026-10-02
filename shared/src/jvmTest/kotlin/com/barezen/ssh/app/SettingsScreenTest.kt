@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
@@ -139,9 +140,19 @@ class SettingsScreenTest {
     }
 
     @OptIn(ExperimentalTestApi::class)
-    @Test fun updateCheckDisabledWhenRepoBlank() = runComposeUiTest {
+    @Test fun defaultRepoPrefilledAndCheckEnabled() = runComposeUiTest {
         setContent { BareZenTheme { SettingsScreen(model()) } }
         onNodeWithText("更新").performClick()
+        // 默认更新源已指向官方仓库，无需用户配置即可检查
+        onNodeWithTag("update-check-button").assertIsEnabled()
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun updateCheckDisabledWhenRepoCleared() = runComposeUiTest {
+        setContent { BareZenTheme { SettingsScreen(model()) } }
+        onNodeWithText("更新").performClick()
+        // 清空更新源 = 回到「未配置，零请求」：按钮禁用并给出引导文案
+        onNodeWithTag("update-repo-input").performTextClearance()
         onNodeWithText("请先填写更新源").assertIsDisplayed()
         onNodeWithTag("update-check-button").assertIsNotEnabled()
     }
