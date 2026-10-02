@@ -6,6 +6,7 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.unit.Density
@@ -39,23 +40,48 @@ internal val BareZenDarkColors = darkColorScheme(
     outlineVariant = BareZenBorderSubtle,
 )
 
-/** 设计包 §5 圆角策略：窗口/卡片 8、输入/按钮 6、小件 4；chips 药丸在各组件处显式 999。 */
+internal val BareZenLightColors = lightColorScheme(
+    primary = BareZenLightAccent,
+    onPrimary = BareZenLightOnAccent,
+    primaryContainer = BareZenLightAccentSubtle,
+    onPrimaryContainer = BareZenLightAccent,
+    secondaryContainer = BareZenLightAccentSubtle,
+    onSecondaryContainer = BareZenLightAccent,
+    tertiary = BareZenInfo,
+    tertiaryContainer = BareZenLightInfoBg,
+    onTertiaryContainer = BareZenInfo,
+    error = BareZenError,
+    onError = BareZenLightOnAccent,
+    errorContainer = BareZenLightErrorBg,
+    onErrorContainer = BareZenError,
+    background = BareZenLightBg,
+    onBackground = BareZenLightTextPrimary,
+    surface = BareZenLightSurface,
+    onSurface = BareZenLightTextPrimary,
+    surfaceContainerLowest = BareZenLightBg,
+    surfaceContainerLow = BareZenLightPanel,
+    surfaceContainer = BareZenLightPanel,
+    surfaceContainerHigh = BareZenLightElevated,
+    surfaceContainerHighest = BareZenLightElevated,
+    onSurfaceVariant = BareZenLightTextSecondary,
+    outline = BareZenLightBorder,
+    outlineVariant = BareZenLightBorderSubtle,
+)
+
+/** DBX 圆角策略：控件 4px、容器 6px；chips 药丸在各组件处显式 999。 */
 val BareZenShapes = Shapes(
-    extraLarge = RoundedCornerShape(8.dp),
-    large = RoundedCornerShape(8.dp),
-    medium = RoundedCornerShape(6.dp),
+    extraLarge = RoundedCornerShape(6.dp),
+    large = RoundedCornerShape(6.dp),
+    medium = RoundedCornerShape(4.dp),
     small = RoundedCornerShape(4.dp),
 )
 
 /**
- * @param darkTheme 是否使用深色板。**目前只有深色板**：传 false 仍是深色，
- *   浅色主题落地时只改这一个分支（见设计 §9.1）。
+ * @param darkTheme 是否使用深色板；false 走亮色板（跟随系统时由调用方按系统偏好传入）。
  */
 @Composable
 fun BareZenTheme(darkTheme: Boolean = true, content: @Composable () -> Unit) {
-    // 浅色板尚未实现；保留形参与分支，落地时只改这里
-    @Suppress("UNUSED_EXPRESSION")
-    val scheme = if (darkTheme) BareZenDarkColors else BareZenDarkColors
+    val scheme = if (darkTheme) BareZenDarkColors else BareZenLightColors
     MaterialTheme(
         colorScheme = scheme,
         typography = BareZenTypography,

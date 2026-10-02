@@ -1,31 +1,48 @@
 // shared/src/commonTest/kotlin/com/barezen/ssh/ui/theme/ThemeColorsTest.kt
 package com.barezen.ssh.ui.theme
 
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
 import kotlin.math.pow
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** 断言值 = docs/ui-redesign/index.html §1 色板 + styles.css --tokens 原文。 */
+/** 断言值 = DBX tokens.css dark 段权威值（github.com/t8y2/dbx）+ 亮色板派生值。 */
 class ThemeColorsTest {
-    @Test fun bgMatchesDesignPack() = assertEquals(Color(0xFF0B0D0E), BareZenBg)
-    @Test fun surfaceMatchesDesignPack() = assertEquals(Color(0xFF131516), BareZenSurface)
-    @Test fun panelMatchesDesignPack() = assertEquals(Color(0xFF1A1D1E), BareZenPanel)
-    @Test fun elevatedMatchesDesignPack() = assertEquals(Color(0xFF232728), BareZenElevated)
-    @Test fun borderMatchesDesignPack() = assertEquals(Color(0xFF2E3335), BareZenBorder)
-    @Test fun borderSubtleMatchesDesignPack() = assertEquals(Color(0xFF24292B), BareZenBorderSubtle)
-    @Test fun textPrimaryMatchesDesignPack() = assertEquals(Color(0xFFEEF1F3), BareZenTextPrimary)
-    @Test fun textSecondaryMatchesDesignPack() = assertEquals(Color(0xFF9CA5A9), BareZenTextSecondary)
-    @Test fun textTertiaryMatchesDesignPack() = assertEquals(Color(0xFF8B9498), BareZenTextTertiary)
-    @Test fun accentMatchesDesignPack() = assertEquals(Color(0xFF52B788), BareZenAccent)
-    @Test fun onAccentMatchesDesignPack() = assertEquals(Color(0xFF101413), BareZenOnAccent)
-    @Test fun accentSubtleMatchesDesignPack() = assertEquals(Color(0xFF1A2E26), BareZenAccentSubtle)
-    @Test fun errorMatchesDesignPack() = assertEquals(Color(0xFFE56A6A), BareZenError)
-    @Test fun errorBgMatchesDesignPack() = assertEquals(Color(0xFF2A1A1A), BareZenErrorBg)
-    @Test fun warningMatchesDesignPack() = assertEquals(Color(0xFFE5A044), BareZenWarning)
-    @Test fun infoMatchesDesignPack() = assertEquals(Color(0xFF5CA8D8), BareZenInfo)
-    @Test fun terminalBgMatchesDesignPack() = assertEquals(Color(0xFF1E1E1E), BareZenTerminalBg)
+    @Test fun bgMatchesDbxTokens() = assertEquals(Color(0xFF131416), BareZenBg)
+    @Test fun surfaceMatchesDbxTokens() = assertEquals(Color(0xFF1B1B1E), BareZenSurface)
+    @Test fun panelMatchesDbxTokens() = assertEquals(Color(0xFF19191C), BareZenPanel)
+    @Test fun elevatedMatchesDbxTokens() = assertEquals(Color(0xFF232327), BareZenElevated)
+    @Test fun borderMatchesDbxTokens() = assertEquals(Color(0x476E6E72), BareZenBorder)
+    @Test fun borderSubtleMatchesDbxTokens() = assertEquals(Color(0x296E6E72), BareZenBorderSubtle)
+    @Test fun textPrimaryMatchesDbxTokens() = assertEquals(Color(0xFFF2F2F4), BareZenTextPrimary)
+    @Test fun textSecondaryMatchesDbxTokens() = assertEquals(Color(0xFF9E9EA6), BareZenTextSecondary)
+    @Test fun textTertiaryMatchesDbxTokens() = assertEquals(Color(0xFF82828A), BareZenTextTertiary)
+    @Test fun accentMatchesDbxTokens() = assertEquals(Color(0xFFD0D0D6), BareZenAccent)
+    @Test fun onAccentMatchesDbxTokens() = assertEquals(Color(0xFF1B1B1E), BareZenOnAccent)
+    @Test fun accentSubtleMatchesDbxTokens() = assertEquals(Color(0x1AFFFFFF), BareZenAccentSubtle)
+    @Test fun errorMatchesDbxTokens() = assertEquals(Color(0xFFF3625F), BareZenError)
+    @Test fun errorBgMatchesDbxTokens() = assertEquals(Color(0x26F3625F), BareZenErrorBg)
+    @Test fun warningMatchesDbxTokens() = assertEquals(Color(0xFFFBBF24), BareZenWarning)
+    @Test fun infoMatchesDbxTokens() = assertEquals(Color(0xFF60A5FA), BareZenInfo)
+    @Test fun terminalBgMatchesDbxTokens() = assertEquals(Color(0xFF1E1E1E), BareZenTerminalBg)
+
+    // 亮色板：从同一色相派生，语义色与暗色同值
+    @Test fun lightBgDerivedFromSameHue() = assertEquals(Color(0xFFF5F5F7), BareZenLightBg)
+    @Test fun lightSurfaceDerivedFromSameHue() = assertEquals(Color(0xFFFFFFFF), BareZenLightSurface)
+    @Test fun lightPanelDerivedFromSameHue() = assertEquals(Color(0xFFF9F9FA), BareZenLightPanel)
+    @Test fun lightElevatedDerivedFromSameHue() = assertEquals(Color(0xFFFFFFFF), BareZenLightElevated)
+    @Test fun lightTextPrimaryDerivedFromSameHue() = assertEquals(Color(0xFF1B1B1E), BareZenLightTextPrimary)
+    @Test fun lightTextSecondaryDerivedFromSameHue() = assertEquals(Color(0xFF6E6E76), BareZenLightTextSecondary)
+    @Test fun lightTextTertiaryDerivedFromSameHue() = assertEquals(Color(0xFF67676F), BareZenLightTextTertiary)
+    @Test fun lightAccentDerivedFromSameHue() = assertEquals(Color(0xFF3A3A40), BareZenLightAccent)
+    @Test fun lightOnAccentDerivedFromSameHue() = assertEquals(Color(0xFFFFFFFF), BareZenLightOnAccent)
+    @Test fun lightBorderKeepsDbxRgb() = assertEquals(Color(0x476E6E72), BareZenLightBorder)
+    @Test fun lightErrorBgUsesHigherAlpha() = assertEquals(Color(0x29F3625F), BareZenLightErrorBg)
 
     @Test fun schemeMapsDesignTokens() {
         val c = BareZenDarkColors
@@ -44,7 +61,31 @@ class ThemeColorsTest {
         assertEquals(BareZenBorderSubtle, c.outlineVariant)
     }
 
-    /** 设计包 §contrast 的证据自动化：正文组合全部 ≥4.5:1。 */
+    @Test fun lightSchemeMapsDerivedTokens() {
+        val c = BareZenLightColors
+        assertEquals(BareZenLightAccent, c.primary)
+        assertEquals(BareZenLightOnAccent, c.onPrimary)
+        assertEquals(BareZenError, c.error)
+        assertEquals(BareZenLightErrorBg, c.errorContainer)
+        assertEquals(BareZenLightBg, c.background)
+        assertEquals(BareZenLightSurface, c.surface)
+        assertEquals(BareZenLightPanel, c.surfaceContainerLow)
+        assertEquals(BareZenLightElevated, c.surfaceContainerHigh)
+        assertEquals(BareZenLightTextSecondary, c.onSurfaceVariant)
+        assertEquals(BareZenLightBorder, c.outline)
+    }
+
+    /** DBX 控件 4px / 容器 6px。 */
+    @Test fun shapesMatchDbxRadius() {
+        val density = Density(1f)
+        val size = Size(100f, 100f)
+        assertEquals(6f, (BareZenShapes.extraLarge as RoundedCornerShape).topStart.toPx(size, density))
+        assertEquals(6f, (BareZenShapes.large as RoundedCornerShape).topStart.toPx(size, density))
+        assertEquals(4f, (BareZenShapes.medium as RoundedCornerShape).topStart.toPx(size, density))
+        assertEquals(4f, (BareZenShapes.small as RoundedCornerShape).topStart.toPx(size, density))
+    }
+
+    /** WCAG 证据自动化：正文组合全部 >=4.5:1。半透明语义背景先合成到 surface 再计算。 */
     @Test fun textCombinationsPassWcagAA() {
         val cases = listOf(
             Triple(BareZenTextPrimary, BareZenBg, 4.5),
@@ -58,11 +99,36 @@ class ThemeColorsTest {
             Triple(BareZenTextTertiary, BareZenPanel, 4.5),
             Triple(BareZenAccent, BareZenPanel, 4.5),
             Triple(BareZenOnAccent, BareZenAccent, 4.5),
-            Triple(BareZenError, BareZenErrorBg, 4.5),
+            Triple(BareZenError, composited(BareZenSurface, BareZenErrorBg), 4.5),
         )
         cases.forEach { (fg, bg, min) ->
             assertTrue(contrastRatio(fg, bg) >= min, "$fg on $bg = ${contrastRatio(fg, bg)} < $min")
         }
+    }
+
+    /** 亮色板 AA：文本三级与主/次在亮背景上的证据。 */
+    @Test fun lightTextCombinationsPassWcagAA() {
+        val cases = listOf(
+            Triple(BareZenLightTextPrimary, BareZenLightBg, 4.5),
+            Triple(BareZenLightTextSecondary, BareZenLightBg, 4.5),
+            Triple(BareZenLightTextTertiary, BareZenLightBg, 4.5),
+            Triple(BareZenLightTextTertiary, BareZenLightPanel, 4.5),
+            Triple(BareZenLightAccent, BareZenLightBg, 4.5),
+            Triple(BareZenLightOnAccent, BareZenLightAccent, 4.5),
+        )
+        cases.forEach { (fg, bg, min) ->
+            assertTrue(contrastRatio(fg, bg) >= min, "$fg on $bg = ${contrastRatio(fg, bg)} < $min")
+        }
+    }
+
+    /** 把半透明 tint 合成到不透明 base 上（sRGB 逐通道线性插值）。 */
+    private fun composited(base: Color, tint: Color): Color {
+        val a = tint.alpha
+        return Color(
+            red = tint.red * a + base.red * (1f - a),
+            green = tint.green * a + base.green * (1f - a),
+            blue = tint.blue * a + base.blue * (1f - a),
+        )
     }
 
     private fun contrastRatio(a: Color, b: Color): Double {
