@@ -19,17 +19,13 @@ import kotlin.test.assertEquals
 class PlaceholderScreensTest {
     @OptIn(ExperimentalTestApi::class)
     @Test fun filesScreenSkeleton() = runComposeUiTest {
+        // FilesScreen 重写后：未连接态整屏提示，全部操作禁用（不造数）
         setContent { BareZenTheme { FilesScreen() } }
         onNodeWithText("文件传输").assertIsDisplayed()
         onNodeWithText("上传").assertIsNotEnabled()
-        onNodeWithText("下载").assertIsNotEnabled()
-        onNodeWithText("本地").assertIsDisplayed()
-        onNodeWithText("远程").assertIsDisplayed()
-        onNodeWithText("名称").assertIsDisplayed()
-        onNodeWithText("大小").assertIsDisplayed()
-        onNodeWithText("修改时间").assertIsDisplayed()
-        onNodeWithText("传输队列占位（M2）").assertIsDisplayed()
-        onNodeWithText("占位（M2）").assertIsDisplayed()
+        onNodeWithText("刷新").assertIsNotEnabled()
+        onNodeWithText("新建文件夹").assertIsNotEnabled()
+        onNodeWithText("连接后可管理文件").assertIsDisplayed()
     }
 
     @OptIn(ExperimentalTestApi::class)
@@ -48,16 +44,8 @@ class PlaceholderScreensTest {
         assertEquals(4, onAllNodesWithText("—").fetchSemanticsNodes().size)
     }
 
-    @OptIn(ExperimentalTestApi::class)
-    @Test fun portsScreenHoldsRealZeroCount() = runComposeUiTest {
-        setContent { BareZenTheme { PortsScreen() } }
-        onNodeWithText("端口转发").assertIsDisplayed()
-        onNodeWithText("新建转发").assertIsNotEnabled()
-        onNodeWithText("活动转发：0 条；需要先建立 SSH 连接才能启动新的转发。").assertIsDisplayed()
-        onNodeWithText("转发表单占位（M3）").assertIsDisplayed()
-        onNodeWithText("类型：本地监听 / 服务器监听 / SOCKS5").assertIsDisplayed()
-        onNodeWithText("已保存的配置 / 活动转发列表占位（M3）").assertIsDisplayed()
-    }
+    // portsScreenHoldsRealZeroCount 已删除：PortsScreen 重写为真实功能屏，
+    // 未连接态与新建表单行为由 jvmTest ui/PortsScreenTest.kt 覆盖。
 
     @OptIn(ExperimentalTestApi::class)
     @Test fun settingsEightCategoriesSwitchClientSide() = runComposeUiTest {
