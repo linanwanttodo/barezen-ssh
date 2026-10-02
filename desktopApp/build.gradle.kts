@@ -20,7 +20,7 @@ dependencies {
 
 compose.desktop {
     application {
-        mainClass = "com.barezen.barezen_ssh.MainKt"
+        mainClass = "com.barezen.ssh.MainKt"
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)

@@ -5,6 +5,10 @@ plugins {
     alias(libs.plugins.composeCompiler)
 }
 
+compose.resources {
+    packageOfResClass = "com.barezen.ssh.generated.resources"
+}
+
 kotlin {
     jvm()
 
