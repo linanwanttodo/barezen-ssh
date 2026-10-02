@@ -90,20 +90,38 @@
 
 实施中修出的产品缺陷：`AiChatModel.send` 双次失败移除空占位气泡时漏置 `isStreaming = false`（流结束后输入永久禁用），测试先红后修复。
 
-## 1.15 v1.0 收官批次三：T-8 版本与打包（2026-10-02，见本批提交）
+## 1.15 v1.0 收官批次三：T-8 版本与打包（2026-10-02，提交 `b952a64`）
 
 - 版本 1.0.0：`gradle.properties` `barezen.version=1.0.0`（单一真相源）+ `BuildInfo.VERSION` 同步（BuildInfoTest 守卫一致性）。
 - 打包：`desktopApp:packageDistributionForCurrentOS` 实际构建成功，产出 `desktopApp/build/compose/binaries/main/deb/barezen-ssh_1.0.0_amd64.deb`（`dpkg-deb -I` 核对 Version: 1.0.0）；`nativeDistributions.includeAllModules = true`（jpackage 模块清单）；Dmg/Msi 格式已配置但需各自平台验证。
 - README 重写：项目简介、功能一览、运行/打包/测试命令、文档索引、已知限制（钥匙串真机、远端转发拓扑、AI BYOK 前置）。
+
+## 1.16 v1.0 收官批次四：终审（2026-10-02，见本批提交）
+
+- `--rerun-tasks` 全量门禁：`:desktopApp:compileKotlin` + `:shared:jvmTest` → **556 用例 / 0 失败**。
+- 硬约束扫描：旧包名 `barezen_ssh` = 0；源码 emoji = 0；彩色令牌（Warning/Info 系）UI 消费点 = 0（仅 @Deprecated 定义保留）。
+- STATUS / ROADMAP / HANDOVER 终稿刷新；下节为用户侧验证清单。
+
+## 2.1 用户侧验证清单（开发环境无法覆盖，需用户桌面机执行）
+
+安装：`dpkg -i barezen-ssh_1.0.0_amd64.deb` 后从应用菜单启动（或 `./gradlew :desktopApp:run`）。
+
+| # | 项 | 步骤 | 预期 |
+|---|---|---|---|
+| 1 | 钥匙串原生路径 | 服务器编辑勾选「记住凭据」保存 → 重启应用 → 连接 | 免输密码；`secret-tool lookup barezen-id server/<id> password` 能取到；删除服务器后条目消失 |
+| 2 | deb 安装冒烟 | `dpkg -i` 安装、启动、连接一台真实服务器、SFTP 上传下载、断开 | 全流程可用；卸载 `dpkg -r barezen-ssh` 干净 |
+| 3 | AI 侧栏 BYOK 实连 | 设置-智能助手填 endpoint/模型，key 存入 → 面板提问 → 勾选「附带终端上下文」提问 → 让 AI 给命令并点「注入」→ 确认 | 流式回复；消息显示「已附带终端输出 N 行」；命令仅在确认后出现在终端；无 key 时输入禁用且有引导文案 |
+| 4 | AI key 持久化 | 存 key 后重启应用，在面板提问 | 有钥匙串的桌面机：key 仍在；无钥匙串环境：明示「key 仅保存在内存，退出即丢失」 |
+| 5 | 远端转发复验 | 需一台与开发机互通的服务器作回连目标 | 远端端口回连本机服务通（开发环境拓扑不可达，非产品缺陷） |
 
 ## 2. 未完成（按优先级，任务书见 ROADMAP.md）
 
 0. **钥匙串真机验证**：接线已在 T-3 完成（`KeychainCredentialResolver.platformDefault()`），但本环境无 `secret-tool`/D-Bus 会话，原生路径未真机跑过。待用户桌面机首次运行时验证：勾选「记住凭据」-> 重启 -> 连接免输密码 -> 钥匙串出现 `BareZen-SSH`/`barezen-id=server/<id>/password` 条目 -> 删除服务器后条目消失。
 2. **T-2 VPS 真机冒烟**：SFTP/指标/本地转发/远端转发数据通路已全部通过（见 1.11）；仅剩下述一项受网络拓扑阻塞。
    - **远端转发数据通路无法在本环境验证**：本机公网出口 IP 经实测**就是该 VPS 自身**（`curl api.ipify.org` = 158.101.11.31，与 `SSH_CLIENT` 一致），VPS 无法 TCP 回连本机 18080；已证 VPS→其自身 127.0.0.1 通路完好（对照试验通过），故属链路不可达而非产品缺陷。需另找一台与开发机互通的服务器复验。
-4. **T-4 P5 多标签/分屏**：会话注册表重构 + AppShell 改造。
-5. **T-5 P6 AI 运维侧栏**：待用户决策。
-6. 小项池：动态转发 SOCKS5（sshj 无现成实现）、JNA 依赖补 Windows 真实桥、亮色板 Warning 前景变体、自动打包分发。
+4. **T-4 P5 多标签**：已完成（会话注册表 + 多标签条，见 3.4）；分屏 D2 形态未排期。
+5. **T-5 P6 AI 运维侧栏**：已完成（T-7，见 1.14）。
+6. 小项池：动态转发 SOCKS5（sshj 无现成实现）、JNA 依赖补 Windows 真实桥、亮色板 Warning 前景变体、亮色主题与分屏打磨。
 
 ## 1.11 T-2a 上传假死缺陷 + T-2 剩余冒烟（2026-10-02）
 

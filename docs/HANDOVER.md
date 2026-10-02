@@ -1,6 +1,6 @@
 # 交接总纲（HANDOVER）
 
-更新：2026-10-02。写给接手本项目的 AI 或开发者：读完本文即可安全开工。
+更新：2026-10-02（v1.0 收官批次完成，HEAD 见 git log）。写给接手本项目的 AI 或开发者：读完本文即可安全开工。
 
 ## 1. 项目是什么
 
@@ -8,12 +8,13 @@ BareZen-SSH：跨平台（Linux/Windows/macOS）桌面 SSH 客户端，Kotlin Mu
 
 技术栈：Kotlin 2.4.20 / Java 21 / Compose Multiplatform 1.12.1 / sshj 0.40.0 / JediTerm 3.73 / Gradle wrapper 9.5.1。
 
-## 2. 现状快照（2026-10-02，HEAD `a0b5c8a`）
+## 2. 现状快照（2026-10-02，v1.0 收官批次完成后）
 
-- **可运行**：`./gradlew :desktopApp:run` 可启动；连接、终端、仪表盘真数据、本地/远程端口转发、SFTP 文件管理、设置六分类全部真实可用。
-- **测试门禁**：367 用例 / 0 失败（`shared` 模块 jvmTest；commonTest 另有若干）。
-- **代码规模**：commonMain + jvmMain 约 5400 行，其中 Java 15 个文件（约 700 行，负责解析/JNA/库包装），测试约 3400 行。
-- **未完成**：钥匙串凭据未接入连接流程、P5 多标签未做、P6 AI 侧栏待决策。完整清单见 STATUS.md。
+- **可运行**：`./gradlew :desktopApp:run` 可启动；连接、终端、仪表盘真数据、本地/远程端口转发、SFTP 文件管理、设置六分类、AI 运维侧栏（BYOK）全部真实可用。
+- **安装包**：`./gradlew :desktopApp:packageDistributionForCurrentOS` 产出 `barezen-ssh_1.0.0_amd64.deb`（Linux 实测；macOS/Windows 需各自平台）。
+- **测试门禁**：556 用例 / 0 失败（`shared` 模块 jvmTest，--rerun-tasks 全量）。
+- **版本**：1.0.0，单一真相源 `gradle.properties` `barezen.version`（BuildInfoTest 守卫一致性）。
+- **未完成（诚实积压）**：钥匙串原生路径真机验证、远端转发真实拓扑复验、JNA + Windows 桥、亮色主题与分屏打磨。完整清单见 STATUS.md。
 
 ## 3. 开工前必须做的事
 
@@ -42,12 +43,11 @@ BareZen-SSH：跨平台（Linux/Windows/macOS）桌面 SSH 客户端，Kotlin Mu
 
 ## 6. 接下来的任务（按优先级）
 
-1. **T-1 钥匙串凭据接入连接流程**（能力已建好，只差接线）——详见 ROADMAP.md。
-2. **T-2 VPS 真机冒烟**（需用户提供凭据；冒烟清单在 ROADMAP）。
-3. **T-3 SFTP 删除/重命名 UI**（`SftpFs` 能力已备）。
-4. **T-4 P5 多标签/分屏**（会话注册表重构）。
-5. **T-5 P6 AI 运维侧栏**（**待用户决策**是否做）。
-6. 其余小项见 ROADMAP.md「小项池」。
+v1.0 收官四批次（T-6 UI 对齐 / T-7 AI 侧栏 / T-8 打包 / 终审）已全部完成。剩余为需要用户桌面机或外部资源的事项：
+
+1. **用户侧验证清单**（见 STATUS.md §2.1）：钥匙串原生路径、deb 安装冒烟、AI 侧栏 BYOK 实连。
+2. **远端转发真实拓扑复验**（需一台与开发机互通的服务器）。
+3. 其余小项见 ROADMAP.md「小项池」（JNA/Windows 桥、亮色 Warning 变体、SOCKS5 动态转发）。
 
 ## 7. 向用户提问的既定待决点
 
