@@ -32,11 +32,14 @@ timeout -k 15 900 ./gradlew --no-daemon --init-script /home/lin/tmp/barezen-ssh-
 **init 脚本重建**（`/home/lin/tmp/barezen-ssh-init.gradle` 随 tmpfs 丢失时，在项目外重建以下内容）：
 
 ```groovy
-// 给 Test JVM 补 user.home（skiko 写字体缓存）与 headless（无 X 跑 Compose UI 测试）
+// user.home：skiko 写字体缓存；headless：无 X 跑 Compose UI 测试；
+// java.io.tmpdir：/tmp 是 10M tmpfs，大文件测试（SFTP 10MB 上传复现等）写不下
+new File("/home/lin/tmp/junit-tmp").mkdirs()
 gradle.projectsEvaluated {
     tasks.withType(Test).configureEach {
         systemProperty "user.home", "/home/lin"
         systemProperty "java.awt.headless", "true"
+        systemProperty "java.io.tmpdir", "/home/lin/tmp/junit-tmp"
     }
 }
 ```
