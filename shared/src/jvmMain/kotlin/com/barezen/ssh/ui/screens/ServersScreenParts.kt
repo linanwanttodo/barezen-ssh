@@ -64,12 +64,19 @@ import com.barezen.ssh.ui.theme.BareZenMonoSmall
 /**
  * 屏头部：横幅二态（连接失败错误横幅 / 未连接计数横幅 + 禁用「全部重连」占位）、
  * 搜索框（testTag server-search）、标签 chips。
+ *
+ * 横幅只反映**活动会话**的失败态：非活动会话的失败属于标签条/终端屏的事，
+ * 拿到这里会把「前端正常」的服务器页错误地染成失败态。
  */
 @Composable
 internal fun ServersHeader(model: AppModel, onRetry: (Server) -> Unit) {
-    val failedState = model.connection as? ConnectionState.Failed
-    val connectedId = (model.connection as? ConnectionState.Connected)?.server?.id
-    val unconnectedCount = model.servers.count { it.id != connectedId }
+    val failedState = model.registry.active?.state as? ConnectionState.Failed
+    // 已连接 = 该服务器有一条及以上 Connected 会话（多会话下同一台机器可能连开两条）
+    val connectedIds = model.registry.sessions
+        .filter { it.state is ConnectionState.Connected }
+        .map { it.server.id }
+        .toSet()
+    val unconnectedCount = model.servers.count { it.id !in connectedIds }
     val allTags = remember(model.servers) { model.servers.flatMap { it.tags }.distinct() }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -212,22 +219,35 @@ internal fun ServersEmptyState(filtered: Boolean, onCreate: () -> Unit) {
     }
 }
 
-/** 服务器卡片：头部（dns 图标/名称/地址/标签徽章/编辑）、统计瓦片或未连接提示体、状态行、操作行。 */
+/**
+ * 服务器卡片：头部（dns 图标/名称/地址/标签徽章/编辑）、统计瓦片或未连接提示体、状态行、操作行。
+ *
+ * [connected] 由调用方按会话注册表算好：该服务器是否存在 Connected 会话（可能多条）。
+ * [activeLatencyMs] 仅在「本卡就是活动会话」时非空——延迟属于会话而非服务器，
+ * 多条会话时给出单条延迟即是撒谎（spec §3.5）。
+ * [sessionCount] 为 0 时按未连接呈现。
+ */
 @Composable
 internal fun ServerCard(
     server: Server,
-    connection: ConnectionState,
     hideAddresses: Boolean,
+    connected: Boolean,
+    activeLatencyMs: Long?,
+    sessionCount: Int,
     onConnect: (Server) -> Unit,
     onNewTerminal: (Server) -> Unit,
     onOpenFiles: () -> Unit,
     onEdit: () -> Unit,
 ) {
-    val connectedConn = connection as? ConnectionState.Connected
-    val failedConn = connection as? ConnectionState.Failed
-    val isUp = connectedConn != null && connectedConn.server.id == server.id
-    val isFailedHere = failedConn != null && failedConn.server.id == server.id
-    val statusText = if (isUp) "已连接 · ${connectedConn.latencyMs} ms" else "未连接"
+    val isUp = connected
+    // 多会话徽标：>=2 条时报条数且不带延迟（延迟已不属于该卡的单一语义）；
+    // 恰 1 条且为活动会话时报「已连接 · N ms」，与改造前逐字一致。
+    val statusText = when {
+        !isUp -> "未连接"
+        sessionCount > 1 -> "已连接 · $sessionCount 个会话"
+        activeLatencyMs != null -> "已连接 · $activeLatencyMs ms"
+        else -> "已连接"
+    }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -315,21 +335,21 @@ internal fun ServerCard(
                     Modifier
                         .size(8.dp)
                         .background(
-                            when {
-                                isUp -> MaterialTheme.colorScheme.primary
-                                isFailedHere -> MaterialTheme.colorScheme.error
-                                else -> MaterialTheme.colorScheme.onSurfaceVariant
-                            },
+                            // 状态点二值：已连接 primary，其余中性——失败不再染红此点。
+                            // 理由：失败是**会话**的属性；本卡的「已连接」判定问的是"该机器是否有
+                            // 连接会话"，若同时把失败态涂在点上，会出现「红点 + 已连接」的自相矛盾
+                            // （同一台机器一条会话失败、另一条正常）。失败在终端屏与横幅上如实呈现。
+                            if (isUp) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
                             CircleShape,
                         )
                 )
                 Spacer(Modifier.width(8.dp))
-                // 状态行三分支：已连接 / 连接失败（该卡）/ 未连接——颜色之外必有文字冗余
+                // 状态行二分支：已连接（带延迟或条数）/ 未连接——颜色之外必有文字冗余
                 Text(
-                    if (isFailedHere) "连接失败" else statusText,
+                    statusText,
                     fontSize = 12.sp,
-                    color = if (isFailedHere) MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.weight(1f))
                 if (!isUp) {

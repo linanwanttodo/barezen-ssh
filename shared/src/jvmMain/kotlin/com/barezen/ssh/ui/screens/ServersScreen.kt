@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.barezen.ssh.app.AppModel
 import com.barezen.ssh.servers.Server
+import com.barezen.ssh.ssh.ConnectionState
 
 /**
  * 服务器列表屏（prototype §S1）：横幅 / 搜索 / 标签筛选 / 服务器卡片网格 + 新建、编辑对话框。
@@ -48,6 +49,12 @@ fun ServersScreen(
     var editing by remember { mutableStateOf<Server?>(null) }
 
     val servers = model.servers
+    // 「已连接」= 该服务器存在**至少一条 Connected 会话**（可能多条）。它不再是单值：
+    // 多会话下同一台机器可以连开两条，用单个 id 判会漏掉其余会话。
+    val connectedIds = model.registry.sessions
+        .filter { it.state is ConnectionState.Connected }
+        .map { it.server.id }
+        .toSet()
     Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 300.dp),
@@ -74,8 +81,14 @@ fun ServersScreen(
                 items(model.visibleServers, key = { it.id }) { server ->
                     ServerCard(
                         server = server,
-                        connection = model.connection,
                         hideAddresses = model.settings.settings.hideAddresses,
+                        connected = server.id in connectedIds,
+                        // 延迟只属于**活动会话**：非活动会话的往返时延不代表这台机器当前的可用性，
+                        // 拿它冒充会让用户误以为该卡就是前台会话。
+                        activeLatencyMs = model.registry.active
+                            ?.takeIf { it.server.id == server.id && it.state is ConnectionState.Connected }
+                            ?.let { (it.state as ConnectionState.Connected).latencyMs },
+                        sessionCount = model.registry.sessions.count { it.server.id == server.id },
                         onConnect = { model.requestConnect(it) },
                         onNewTerminal = onNewTerminal,
                         onOpenFiles = onOpenFiles,

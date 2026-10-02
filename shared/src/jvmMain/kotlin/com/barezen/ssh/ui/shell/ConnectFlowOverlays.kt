@@ -23,17 +23,26 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.barezen.ssh.app.AppModel
 import com.barezen.ssh.app.Destination
+import com.barezen.ssh.app.SessionId
 import com.barezen.ssh.ssh.ConnectionState
 
 /**
  * 连接中 / 失败全局覆盖层（设计包「连接流程」三态）。
+ *
  * 终端屏自理 Connecting/Failed 状态机，故在终端屏不叠加，避免双弹。
+ *
+ * 覆盖层只反映**活动会话**：多会话下可能同时有多条会话在连接，同时弹多个进度框没有意义，
+ * 且「取消」按钮不知道该掐哪一条。非活动会话的连接进度属于标签条的事（第 4 刀）。
  */
 @Composable
 fun ConnectFlowOverlays(model: AppModel) {
     if (model.current == Destination.TERMINAL) return
-    val connection = model.connection
-    var dismissed by remember { mutableStateOf<ConnectionState.Failed?>(null) }
+    val active = model.registry.active
+    val activeId = active?.id
+    val connection = active?.state
+    // 失败框的「已关闭」按**会话 id** 记账，不按状态对象：两条会话可能产生内容相同的
+    // Failed 值，按值记会被另一条会话的失败误判成「已经关过了」而静默不弹。
+    var dismissed by remember { mutableStateOf<SessionId?>(null) }
 
     if (connection is ConnectionState.Connecting) {
         AlertDialog(
@@ -52,9 +61,9 @@ fun ConnectFlowOverlays(model: AppModel) {
             dismissButton = { TextButton(onClick = { model.cancelConnect() }) { Text("取消") } },
         )
     }
-    if (connection is ConnectionState.Failed && dismissed !== connection) {
+    if (connection is ConnectionState.Failed && dismissed != activeId) {
         AlertDialog(
-            onDismissRequest = { dismissed = connection },
+            onDismissRequest = { dismissed = activeId },
             text = {
                 Surface(color = MaterialTheme.colorScheme.errorContainer) {
                     Text(
@@ -68,12 +77,12 @@ fun ConnectFlowOverlays(model: AppModel) {
             confirmButton = {
                 Button(
                     onClick = {
-                        dismissed = connection
+                        dismissed = activeId
                         model.requestConnect(connection.server)
                     },
                 ) { Text("重试") }
             },
-            dismissButton = { TextButton(onClick = { dismissed = connection }) { Text("取消") } },
+            dismissButton = { TextButton(onClick = { dismissed = activeId }) { Text("取消") } },
         )
     }
 }

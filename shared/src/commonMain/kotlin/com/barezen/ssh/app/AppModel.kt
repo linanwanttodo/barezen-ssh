@@ -112,12 +112,12 @@ class AppModel(
     /**
      * 建连：委托注册表新建一条会话并置为前台。
      *
-     * 防重入：建连进行中忽略新连接请求——并发协程会互相丢弃会话（孤儿 SSH 连接+keep-alive 线程），
-     * 且状态/会话两次赋值可能被末写者覆盖成不一致。多标签时代该守卫退化为 per-SessionId
-     * （同时连不同服务器应当被允许），但本刀保持单会话行为逐字不变。
+     * 防重入已退化为 **per-SessionId**（由 [SessionRegistry.connect] 保证同一会话不重复建连）：
+     * 多标签的意义正是**同时连接不同服务器**，全局互斥等于没有多标签。旧守卫「Connecting 期间
+     * 忽略一切新请求」在单会话下防的是「并发协程互相丢弃会话」，该风险已由注册表的按 id 归属
+     * 消除（每条会话各自一个 connectJob + 各自的终态槽位，末写者覆盖不再可能）。
      */
     fun startConnect(server: Server, auth: AuthMethod) {
-        if (connection is ConnectionState.Connecting) return
         val id = registry.connect(server, auth)
         // 导航时机与改造前一致：只有建连**成功**才跳终端页。
         // 连接中/失败时停留在原页，覆盖层（ConnectFlowOverlays 依赖 current != TERMINAL）照常呈现。
@@ -146,14 +146,15 @@ class AppModel(
     }
 
     /**
-     * TerminalView 接线处回传的 shell 启动失败：关掉该会话的底层连接并就地把状态落为失败
+     * TerminalView 接线处回传的 shell 启动失败：关掉**该会话**的底层连接并就地把状态落为失败
      * （重试走 requestConnect）。不新建会话，故失败信息与 id/title 都挂在原会话上。
      *
-     * 本刀签名不变（server, message）——单会话下与活动会话一一对应；改携 SessionId 是第 3 刀的事。
+     * 必须携带 [SessionId] 而非只看活动会话：启动 shell 与回传失败之间，用户可能已经切到别的
+     * 标签——按活动会话落失败会把**正在使用的会话**关掉，而真正出错的会话仍停在 Connected。
      * 失败态里的服务器取自注册表自存的会话，避免调用方传入的 server 与之脱节。
      */
-    fun reportShellStartFailed(server: Server, message: String) {
-        registry.activeId?.let { registry.fail(it, message) }
+    fun reportShellStartFailed(sessionId: SessionId, message: String) {
+        registry.fail(sessionId, message)
     }
 
     companion object {

@@ -51,7 +51,6 @@ import androidx.compose.ui.unit.sp
 import com.barezen.ssh.app.AppModel
 import com.barezen.ssh.app.Destination
 import com.barezen.ssh.servers.FileForwardRuleStore
-import com.barezen.ssh.ssh.ConnectionState
 import com.barezen.ssh.ssh.forward.ForwardManager
 import com.barezen.ssh.ssh.sftp.SftpModel
 import com.barezen.ssh.ssh.sftp.TransferStatus
@@ -134,18 +133,21 @@ fun BareZenAppContent(model: AppModel) {
 }
 
 /**
- * 文件页接线（参照 DashboardHost 范式）：连接后以当前会话创建 [SftpModel]（fsFactory 惰性建 SFTP），
- * 断开时取消未完成传输并释放。未连接传 null，FilesScreen 呈现整屏禁用态。
+ * 文件页接线（参照 DashboardHost 范式）：跟随**活动会话**创建 [SftpModel]（fsFactory 惰性建 SFTP），
+ * 会话切走或断开时取消未完成传输并释放。无活动会话传 null，FilesScreen 呈现整屏禁用态。
+ *
+ * key 用会话 id 而非布尔 connected：两条会话**同时 Connected** 时布尔恒为 true，
+ * 只以它为 key 的 LaunchedEffect 不会重跑，切换活动会话后 SFTP 面板仍绑在旧会话的句柄上。
  */
 @Composable
 private fun FilesHost(model: AppModel) {
-    val connected = model.connection is ConnectionState.Connected
+    val active = model.registry.active
     val scope = rememberCoroutineScope()
     var sftpModel by remember { mutableStateOf<SftpModel?>(null) }
 
-    LaunchedEffect(connected) {
-        val session = model.shellSession
-        if (connected && session != null) {
+    LaunchedEffect(active?.id) {
+        val session = active?.session
+        if (active != null && session != null) {
             sftpModel = SftpModel(scope, fsFactory = { session.newSftp() })
         } else {
             sftpModel?.transfers?.value
@@ -158,20 +160,25 @@ private fun FilesHost(model: AppModel) {
 }
 
 /**
- * 端口转发页接线：连接后创建 [ForwardManager]（隧道工厂走当前会话）并自动启用
- * 标记为「连接时自动启用」的已保存规则；断开时关闭全部活动隧道。
+ * 端口转发页接线：跟随**活动会话**创建 [ForwardManager]（隧道工厂走该会话）并自动启用
+ * 标记为「连接时自动启用」的已保存规则；会话切走或断开时关闭全部活动隧道。
+ *
+ * key 用会话 id 而非布尔 connected，理由同 [FilesHost]。
+ *
+ * 注意：隧道所有权仍在 Host（切走即 closeAll）——上移到 SessionResources 是第 4 刀的事，
+ * 本刀只做「按会话 id 订阅」这一层，释放语义保持原状。
  */
 @Composable
 private fun PortsHost(model: AppModel) {
-    val connected = model.connection is ConnectionState.Connected
+    val active = model.registry.active
     val scope = rememberCoroutineScope()
     var managerFlow by remember {
         mutableStateOf<StateFlow<ForwardManager?>>(MutableStateFlow(null))
     }
 
-    LaunchedEffect(connected) {
-        val session = model.shellSession
-        if (connected && session != null) {
+    LaunchedEffect(active?.id) {
+        val session = active?.session
+        if (active != null && session != null) {
             val manager = ForwardManager { spec -> session.startForward(spec) }
             val flow = MutableStateFlow<ForwardManager?>(manager)
             managerFlow = flow

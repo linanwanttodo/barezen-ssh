@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.barezen.ssh.app.AppModel
+import com.barezen.ssh.app.SessionSnapshot
 import com.barezen.ssh.ssh.ConnectionState
 import com.barezen.ssh.ssh.ShellChannel
 import com.barezen.ssh.ssh.SshSession
@@ -44,36 +45,48 @@ import com.barezen.ssh.ui.theme.BareZenMonoSmall
  * 终端屏：标签条（36dp，已连接渲染会话标签，`+`/「助手」为禁用占位）+
  * 状态机内容区 + 状态栏（28dp/11sp，已连接带 `—` 指标位）。
  * 未连接 CTA / 连接中 spin / 失败 msgbox+重试 / 已连接 TerminalView。
+ *
+ * 整屏状态机读**活动会话**（[SessionRegistry.active]），不再读单值投影：多会话并存时
+ * 投影只能反映其一，而本屏必须能表达「有会话但都不是前台」这类情形。
  */
 @Composable
 fun TerminalScreen(model: AppModel) {
+    val active = model.registry.active
     Column(Modifier.fillMaxSize()) {
-        TerminalTabStrip(model.connection)
+        TerminalTabStrip(active)
         Box(Modifier.fillMaxWidth().weight(1f)) {
-            when (val st = model.connection) {
-                is ConnectionState.Disconnected -> Cta("在服务器列表选择「新建终端」以开始。")
-                is ConnectionState.Connecting -> ConnectingPane(st)
-                is ConnectionState.Failed -> FailedPane(st) { model.requestConnect(st.server) }
-                is ConnectionState.Connected -> ConnectedPane(model, st)
+            // 先解到快照再分派：Connected 分支需要整个 SessionSnapshot（id 用于失败回传、session 用于挂终端）
+            when (val snapshot = active) {
+                null -> Cta("在服务器列表选择「新建终端」以开始。")
+                else -> when (val st = snapshot.state) {
+                    // 无活动会话与显式断开是同一档呈现（都是「没有可用的终端会话」），文案不分叉
+                    is ConnectionState.Disconnected -> Cta("在服务器列表选择「新建终端」以开始。")
+                    is ConnectionState.Connecting -> ConnectingPane(st)
+                    is ConnectionState.Failed -> FailedPane(st) { model.requestConnect(st.server) }
+                    is ConnectionState.Connected -> ConnectedPane(model, snapshot)
+                }
             }
         }
-        ConnectionStatusBar(model.connection)
+        ConnectionStatusBar(active?.state)
     }
 }
 
 /**
  * 标签条（设计包 §终端方案与组件表：36dp 高、panel 底、活动标签 elevated 6dp 圆角、无下划线）。
- * 已连接渲染会话标签（close 不渲染——显式断开是开放项）；
+ * 已连接会话渲染标签（close 不渲染——显式断开是开放项）；
  * `+`（多标签 M4）与「助手」（AI 侧栏 M5）渲染为禁用占位——能力未实现，不给可点入口。
+ *
+ * 入参是 [SessionSnapshot] 而非 [ConnectionState]：标签的身份是**会话**（id/title），
+ * 多标签渲染需要会话列表，本刀先只渲染活动会话那一个，签名先按终态定型以免刀 5 再改一次。
  */
 @Composable
-private fun TerminalTabStrip(connection: ConnectionState) {
+private fun TerminalTabStrip(active: SessionSnapshot?) {
     val colors = MaterialTheme.colorScheme
     Row(
         Modifier.fillMaxWidth().height(36.dp).background(colors.surfaceContainer).padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (connection is ConnectionState.Connected) {
+        if (active != null && active.state is ConnectionState.Connected) {
             Surface(color = colors.surfaceContainerHigh, shape = RoundedCornerShape(6.dp)) {
                 Row(
                     Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -87,7 +100,7 @@ private fun TerminalTabStrip(connection: ConnectionState) {
                         tint = colors.onSurfaceVariant,
                     )
                     Text(
-                        connection.server.name,
+                        active.title,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = colors.onSurface,
@@ -162,8 +175,8 @@ private fun FailedPane(state: ConnectionState.Failed, onRetry: () -> Unit) {
 
 /** 已连接：挂 [TerminalView]。会话缺席不以 `!!` 炸组合，startShell 抛错不炸应用。 */
 @Composable
-private fun ConnectedPane(model: AppModel, state: ConnectionState.Connected) {
-    val session = model.shellSession
+private fun ConnectedPane(model: AppModel, snapshot: SessionSnapshot) {
+    val session = snapshot.session
     if (session == null) {
         // Connected 而会话缺席（测试直注状态 / 会话刚被收口）：给占位而非崩溃
         Cta("正在启动终端…")
@@ -172,9 +185,13 @@ private fun ConnectedPane(model: AppModel, state: ConnectionState.Connected) {
     // startShell 在 TerminalView 的 DisposableEffect 体内执行（effect 阶段，组合期 try/catch 够不着）：
     // 在会话外包一层 runCatching——抛错即回传 Failed（并关会话），以 no-op 通道返回让 effect
     // 照常注册 onDispose（否则 widget 不关、connector 悬挂且炸组合）。
-    val guarded = remember(session) {
+    //
+    // 失败回传必须带**本条会话的 id**（不是活动会话）：启动 shell 与回传之间用户可能已切标签，
+    // 按活动会话落失败会关掉用户正在用的那一条。remember 的 key 里带上 id 亦保证切换会话时
+    // 包装器随之重建，回调闭包不会指向旧会话。
+    val guarded = remember(session, snapshot.id) {
         ShellStartGuardedSession(session) { message ->
-            model.reportShellStartFailed(state.server, message)
+            model.reportShellStartFailed(snapshot.id, message)
         }
     }
     TerminalView(guarded, model.settings.settings, Modifier.fillMaxSize())
@@ -187,10 +204,11 @@ private fun ConnectedPane(model: AppModel, state: ConnectionState.Connected) {
  * 其余状态只渲染圆点+状态词（照设计空态，不带指标位）。
  */
 @Composable
-private fun ConnectionStatusBar(connection: ConnectionState) {
+private fun ConnectionStatusBar(connection: ConnectionState?) {
     val colors = MaterialTheme.colorScheme
+    // null = 无活动会话：与 Disconnected 同档文案（「未连接」），不新造状态词
     val (label, dotColor) = when (connection) {
-        is ConnectionState.Disconnected -> "未连接" to colors.onSurfaceVariant
+        null, is ConnectionState.Disconnected -> "未连接" to colors.onSurfaceVariant
         is ConnectionState.Connecting -> "连接中" to colors.primary
         is ConnectionState.Connected -> "已连接" to colors.primary
         is ConnectionState.Failed -> "连接失败" to colors.error
