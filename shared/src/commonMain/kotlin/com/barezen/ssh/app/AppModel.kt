@@ -3,6 +3,8 @@ package com.barezen.ssh.app
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.barezen.ssh.credentials.CredentialResolver
+import com.barezen.ssh.credentials.NoopCredentialResolver
 import com.barezen.ssh.ssh.AuthMethod
 import com.barezen.ssh.ssh.ConnectRequest
 import com.barezen.ssh.ssh.ConnectionState
@@ -24,6 +26,11 @@ class AppModel(
     val ssh: SshClient,
     private val scope: CoroutineScope,
     val settings: SettingsModel,
+    /**
+     * 凭据解析端口（jvmMain 钥匙串实现由壳层注入）。
+     * 默认 [NoopCredentialResolver]＝不存取，行为与本类引入该参数之前完全一致。
+     */
+    val credentials: CredentialResolver = NoopCredentialResolver,
 ) {
     var current: Destination by mutableStateOf(Destination.SERVERS)
         private set
@@ -48,7 +55,20 @@ class AppModel(
     fun setQuery(value: String) { query = value }
     fun selectTag(value: String?) { selectedTag = value }
     fun saveServer(server: Server) { repo.upsert(server); refreshServers() }
-    fun removeServer(id: String) { repo.delete(id); refreshServers() }
+
+    /**
+     * 删除服务器并清理其在钥匙串中的凭据条目（幂等，条目不存在时静默返回）——
+     * 否则条目会成为孤儿，永久占据用户钥匙串且无从在 UI 里删除。
+     */
+    fun removeServer(id: String) {
+        repo.delete(id)
+        refreshServers()
+        credentials.forget(id)
+    }
+
+    /** 该服务器是否已有可用凭据（钥匙串可用且存在条目）——连接流程据此决定是否免输入。 */
+    fun hasStoredCredential(server: Server): Boolean =
+        credentials.isAvailable() && credentials.load(server) != null
 
     /** 卡片「连接」/「新建终端」入口：弹出连接确认对话框。 */
     fun requestConnect(server: Server) { pendingConnect = server }
