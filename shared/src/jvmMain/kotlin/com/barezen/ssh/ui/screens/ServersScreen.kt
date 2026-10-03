@@ -63,12 +63,7 @@ fun ServersScreen(
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 280.dp),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = BareZenSpace.xxxl,
-                top = BareZenSpace.xl,
-                end = BareZenSpace.xxxl,
-                bottom = 96.dp,
-            ),
+            contentPadding = PaddingValues(bottom = 96.dp),
             horizontalArrangement = Arrangement.spacedBy(BareZenSpace.lg),
             verticalArrangement = Arrangement.spacedBy(BareZenSpace.lg),
         ) {

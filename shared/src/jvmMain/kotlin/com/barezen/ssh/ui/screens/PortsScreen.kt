@@ -192,12 +192,7 @@ fun PortsScreen(model: PortsModel = PortsModel(scope = rememberCoroutineScope())
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(
-                    start = BareZenSpace.xxxl,
-                    end = BareZenSpace.xxl,
-                    top = BareZenSpace.xl,
-                    bottom = BareZenSpace.lg,
-                ),
+                .padding(bottom = BareZenSpace.lg),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -217,8 +212,7 @@ fun PortsScreen(model: PortsModel = PortsModel(scope = rememberCoroutineScope())
             Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = BareZenSpace.xxxl)
-                .padding(bottom = BareZenSpace.xxxl),
+                .padding(bottom = BareZenSpace.xxl),
             verticalArrangement = Arrangement.spacedBy(BareZenSpace.lg),
         ) {
             Banner(

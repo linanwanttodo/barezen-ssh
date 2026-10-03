@@ -94,7 +94,7 @@ fun DashboardScreen(
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(start = BareZenSpace.xxxl, end = BareZenSpace.xxl, top = BareZenSpace.xl, bottom = BareZenSpace.lg),
+                .padding(bottom = BareZenSpace.lg),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -117,8 +117,7 @@ fun DashboardScreen(
                 .weight(1f)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = BareZenSpace.xxxl)
-                .padding(bottom = BareZenSpace.xxxl),
+                .padding(bottom = BareZenSpace.xxl),
             verticalArrangement = Arrangement.spacedBy(BareZenSpace.lg),
         ) {
             // 指标格四卡（apple.css `.metric-grid`）：4 等宽 + 16 间距

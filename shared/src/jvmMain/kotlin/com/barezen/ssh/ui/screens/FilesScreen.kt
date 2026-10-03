@@ -124,12 +124,7 @@ fun FilesScreen(
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(
-                    start = BareZenSpace.xxxl,
-                    end = BareZenSpace.xxl,
-                    top = BareZenSpace.xl,
-                    bottom = BareZenSpace.lg,
-                ),
+                .padding(bottom = BareZenSpace.lg),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -154,7 +149,7 @@ fun FilesScreen(
         if (state?.error != null) {
             Text(
                 "错误：${state.error}",
-                Modifier.fillMaxWidth().padding(horizontal = BareZenSpace.xxxl, vertical = 4.dp),
+                Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 fontSize = 12.sp,
                 color = LocalBareZenColors.current.onErrorContainer,
             )
@@ -187,7 +182,7 @@ fun FilesScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = BareZenSpace.xxxl),
+
             )
         }
 

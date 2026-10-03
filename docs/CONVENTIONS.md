@@ -35,7 +35,8 @@ com.barezen.ssh                     唯一根包
   ui/components/ Components.kt 通用控件库（Btn/Chip/Badge/Banner/Card/
               StatusDot/SegmentedControl/Switch/Slider）——**各屏只从这里取控件**
   ui/screens/ 一屏一文件；设置页按分类拆 Settings*Section.kt
-  ui/shell/   AppShell 布局骨架 + *Host 接线层（模型生命周期）
+  ui/shell/   AppShell 布局骨架 + *Host 接线层（模型生命周期）+
+              WindowControl.kt（自建窗口 chrome 的能力接口与拖动区）
   ssh/        Ssh.kt 接口（commonMain）；jvmMain：JvmSshClient、ssh/metrics、ssh/sftp、ssh/forward
   servers/    Server 模型与仓库、连接导入导出
   settings/   AppSettings 与仓库、更新检查

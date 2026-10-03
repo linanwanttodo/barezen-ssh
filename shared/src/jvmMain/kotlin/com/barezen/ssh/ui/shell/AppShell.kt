@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.CropSquare
+import androidx.compose.material.icons.outlined.FilterNone
+import androidx.compose.material.icons.outlined.HorizontalRule
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.QueryStats
@@ -45,8 +50,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.awt.LocalAwtWindow
+import androidx.compose.ui.awt.LocalAwtWindow
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -81,13 +89,24 @@ import com.barezen.ssh.ui.theme.LocalBareZenColors
 
 /**
  * 应用外壳（apple.html `app-shell` / `app-body`）：
- * 224dp 侧栏（品牌块 + 导航 + 底部连接计数）| 48dp 标题栏（屏名 + 右侧快捷键按钮）| 内容容器。
  *
- * 内容区按 apple.css `.screen`：bg 底、四角 12dp 圆角、上/右/下各留 12px 边距，
- * 终端屏与设置屏为「无边距满铺」形态（`.screen.terminal/.settings { padding: 0 }`）。
+ * ```
+ * ┌──────────────── 标题栏（自建窗口 chrome，拖拽区 + 窗口按钮）──────────┐
+ * │ 侧栏 224dp        │ 屏名                                        × ⤢ − │
+ * │ 品牌块 64dp       ├───────────────────────────────────────────────────┤
+ * │ 导航项            │ 内容区：--bg 底，仅上方两角 12dp 圆角                │
+ * │ ...              │ （上/右/下 12px 外边距；与标题栏之间无分割线）      │
+ * │ 连接计数          │                                                   │
+ * │ 收起              │                                                   │
+ * └──────────────────┴───────────────────────────────────────────────────┘
+ * ```
+ *
+ * **粘连**：侧栏与标题栏同为 `--surface`(#141416)，内容区为 `--bg`(#1C1C1E)。
+ * 侧栏右缘**没有描边**（apple.css 的 `.app-sidebar` 无 border-right），
+ * 边界只靠这两级底色的色差；圆角只在内容区上方两角，形成侧栏「凹」、内容区「凸」。
  */
 @Composable
-fun BareZenAppContent(model: AppModel) {
+fun BareZenAppContent(model: AppModel, modifier: Modifier = Modifier) {
     var collapsed by remember { mutableStateOf(false) }
     // T-7：AI 运维侧栏。单实例 AiKeyStore 由壳持有（同时下传终端屏与设置屏），
     // 避免两处各自建内存降级存储导致互不可见。
@@ -110,45 +129,76 @@ fun BareZenAppContent(model: AppModel) {
     }
     val terminalBridge = remember { TerminalBridge() }
 
-    Row(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        AppSidebar(
-            model = model,
-            collapsed = collapsed,
-            onToggle = { collapsed = !collapsed },
-            modifier = Modifier.fillMaxHeight(),
-        )
-        CompositionLocalProvider(LocalTerminalBridge provides terminalBridge) {
-            Column(Modifier.weight(1f).fillMaxHeight()) {
-                AppTitlebar(screenName = model.current.label)
-                Box(Modifier.weight(1f).fillMaxWidth()) {
-                    // 内容容器：bg 底 + 12dp 圆角 + 1dp 描边。终端/设置满铺，其余屏内缩。
-                    val inset =
-                        model.current == Destination.TERMINAL || model.current == Destination.SETTINGS
-                    Surface(
-                        modifier = if (inset) Modifier.fillMaxSize()
-                        else Modifier
-                            .fillMaxSize()
-                            .padding(
-                                start = BareZenSize.contentInset,
-                                top = BareZenSize.contentInset,
-                                end = BareZenSize.contentInset,
-                                bottom = BareZenSize.contentInset,
-                            ),
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        shape = RoundedCornerShape(BareZenSize.contentTopRadius),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                    ) {
-                        when (model.current) {
-                            Destination.DASHBOARD -> DashboardHost(model)
-                            Destination.SERVERS -> ServersScreen(
-                                model = model,
-                                onNewTerminal = { model.requestConnect(it) },
-                                onOpenFiles = { model.navigate(Destination.FILES) },
-                            )
-                            Destination.TERMINAL -> TerminalScreen(model, aiChat, aiKeys)
-                            Destination.FILES -> FilesHost(model)
-                            Destination.PORTS -> PortsHost(model)
-                            Destination.SETTINGS -> SettingsScreen(model, aiKeys)
+    Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+        // 标题栏横跨整个窗口宽度（含侧栏上方），这是「自建窗口 chrome」的前提：
+        // 窗口按钮必须贴在窗口右上角，屏名在内容区上方居中于右半区。
+        AppTitlebar(screenName = model.current.label)
+        Row(Modifier.weight(1f).fillMaxWidth()) {
+            AppSidebar(
+                model = model,
+                collapsed = collapsed,
+                onToggle = { collapsed = !collapsed },
+                modifier = Modifier.fillMaxHeight(),
+            )
+            CompositionLocalProvider(LocalTerminalBridge provides terminalBridge) {
+                // app-main：surface 底（= #141416，与侧栏同色，故粘连处无任何描边；
+                // 边界完全靠内容区 --bg(#1C1C1E) 与它的色差体现）
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.surface),
+                ) {
+                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                        // .screen：bg 底 + **只切上方两个角** 12px + 上/右/下各 12px 外边距。
+                        // **左外边距为 0**：内容区左缘必须紧贴侧栏，两者靠底色对撞「粘连」，
+                        // 一旦留 12px 就会退化成「侧栏和内容区之间有条缝」。
+                        //
+                        // 注意 `.screen.terminal/.settings { padding: 0 }` 只清**内边距**，
+                        // 外边距与圆角都还在——终端/设置屏同样要留这 12px 与圆角。
+                        //
+                        // 内层 32px（--space-8）留白只在**有内容的面板屏**给：
+                        // 仪表盘/服务器/文件/端口转发是滚动内容页，需要这层呼吸；
+                        // 终端与设置自己管理内部边距（终端要满铺画 shell，设置要满高滚动），
+                        // 叠加会变成 32+32 双重留白、空态被推到中间偏上。
+                        val paddedScreen =
+                            model.current != Destination.TERMINAL &&
+                                model.current != Destination.SETTINGS
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .padding(
+                                    start = 0.dp,
+                                    top = BareZenSize.contentInset,
+                                    end = BareZenSize.contentInset,
+                                    bottom = BareZenSize.contentInset,
+                                )
+                                .clip(
+                                    RoundedCornerShape(
+                                        topStart = BareZenSize.contentTopRadius,
+                                        topEnd = BareZenSize.contentTopRadius,
+                                        bottomEnd = 0.dp,
+                                        bottomStart = 0.dp,
+                                    ),
+                                )
+                                .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                                .then(
+                                    if (paddedScreen) Modifier.padding(BareZenSpace.xxxl)
+                                    else Modifier
+                                ),
+                        ) {
+                            when (model.current) {
+                                Destination.DASHBOARD -> DashboardHost(model)
+                                Destination.SERVERS -> ServersScreen(
+                                    model = model,
+                                    onNewTerminal = { model.requestConnect(it) },
+                                    onOpenFiles = { model.navigate(Destination.FILES) },
+                                )
+                                Destination.TERMINAL -> TerminalScreen(model, aiChat, aiKeys)
+                                Destination.FILES -> FilesHost(model)
+                                Destination.PORTS -> PortsHost(model)
+                                Destination.SETTINGS -> SettingsScreen(model, aiKeys)
+                            }
                         }
                     }
                 }
@@ -236,16 +286,10 @@ private fun AppSidebar(
                     )
                 }
             }
-            HorizontalRule()
             SidebarToggle(collapsed, onToggle)
         }
-        Box(
-            Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight()
-                .width(1.dp)
-                .background(colors.outline),
-        )
+        // **刻意不画右缘描边**：apple.css 的 `.app-sidebar` 没有 border-right，
+        // 侧栏与内容区的边界靠 surface(#141416) 与 bg(#1C1C1E) 的色差自然体现。
     }
 }
 
@@ -387,50 +431,85 @@ private fun SidebarToggle(collapsed: Boolean, onToggle: () -> Unit) {
     }
 }
 
+/** 读取当前 AWT 窗口（供标题栏拖动用）。实验 API 的标注只落在这一个读取点。 */
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun currentAwtWindow(): java.awt.Window? = LocalAwtWindow.current
+
 /**
- * 标题栏（apple.css `.app-titlebar`）：48dp、surface 底；左为屏名（13sp/600），
- * 右侧两个等宽字形按钮（搜索 / 命令面板）。命令面板尚未实现，按 disabled 呈现
- * （不造功能：按钮可见但禁用，而不是给一个点了没反应的东西）。
+ * 标题栏（自建窗口 chrome，apple.css `.app-titlebar`）：48dp、surface 底、横跨整窗宽。
+ *
+ * 三段：左侧留出侧栏宽度的空白（保持与侧栏同色粘连）| 中部屏名（13sp/600）|
+ * 右侧窗口按钮（最小化 / 最大化 / 关闭）。
+ *
+ * 整条同时是**窗口拖拽区**（[WindowDraggableArea]）——`WindowDecoration.None` 之后
+ * 系统不再提供拖拽，手工拖动只能靠它。
  */
 @Composable
 private fun AppTitlebar(screenName: String) {
     val colors = MaterialTheme.colorScheme
+    val win = LocalWindowController.current
+    // LocalAwtWindow 是实验 API：无边框窗口下拖动必须拿到 AWT Window 才能改屏幕坐标，
+    // 而 WindowState 并不暴露它。实验标注收敛在这一个读取点。
+    val awtWindow = currentAwtWindow()
     Row(
         Modifier
             .fillMaxWidth()
             .height(BareZenSize.titlebarHeight)
-            .background(colors.surface)
-            .padding(horizontal = 20.dp),
+            .background(colors.surface),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ScreenTitle(screenName)
+        // 标题栏左段与侧栏同色，视觉上「延长」侧栏，形成 L 形粘连
+        Spacer(Modifier.width(BareZenSize.sidebarWidth))
+        ScreenTitle(screenName, Modifier.padding(start = 20.dp))
         Spacer(Modifier.weight(1f))
-        TitlebarKey("Q", "搜索")
-        Spacer(Modifier.width(8.dp))
-        TitlebarKey("Ctrl K", "命令面板", enabled = false)
+        // 拖拽区：占满屏名与窗口按钮之间的空白。WindowDecoration.None 之后系统不提供
+        // 拖拽，必须自己接（见 windowDragHandle）；双击 = 最大化/还原。
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .windowDragHandle(awtWindow, onClick = { win.toggleMaximize() })
+                .testTag("titlebar-drag-area"),
+        )
+        WindowButton(Icons.Outlined.HorizontalRule, "最小化") { win.minimize() }
+        WindowButton(
+            icon = if (win.isMaximized) Icons.Outlined.FilterNone else Icons.Outlined.CropSquare,
+            label = if (win.isMaximized) "还原" else "最大化",
+        ) { win.toggleMaximize() }
+        WindowButton(Icons.Filled.Close, "关闭", danger = true) { win.close() }
     }
 }
 
-/** 标题栏键帽按钮（apple.css `.titlebar-btn`）：等宽字形 + 描边。 */
+/**
+ * 窗口按钮：24x24 无底色、hover 才出 `surfaceContainer` 底；关闭按钮 hover 转红。
+ * 不给常驻描边——与「粘连处无描边」同一套语言。
+ */
 @Composable
-private fun TitlebarKey(glyph: String, label: String, enabled: Boolean = true) {
+private fun WindowButton(
+    icon: ImageVector,
+    label: String,
+    danger: Boolean = false,
+    onClick: () -> Unit,
+) {
     val colors = MaterialTheme.colorScheme
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val fg = when {
+        danger && hovered -> colors.onError
+        else -> colors.onSurfaceVariant
+    }
     Box(
         Modifier
-            .height(28.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(colors.surfaceContainer)
-            .border(1.dp, colors.outline, RoundedCornerShape(8.dp))
-            .clickable(enabled = enabled) {}
+            .width(46.dp)
+            .fillMaxHeight()
+            .background(if (hovered) colors.surfaceContainer else Color.Transparent)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .semantics { contentDescription = label }
-            .padding(horizontal = 12.dp),
+            .testTag("window-button-$label"),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            glyph,
-            fontSize = 11.sp,
-            color = if (enabled) colors.onSurfaceVariant else colors.onSurfaceVariant.copy(alpha = 0.45f),
-        )
+        Icon(icon, null, modifier = Modifier.size(14.dp), tint = fg)
     }
 }
 

@@ -4,6 +4,7 @@ package com.barezen.ssh
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import com.barezen.ssh.app.AppModel
 import com.barezen.ssh.settings.Theme
@@ -12,7 +13,7 @@ import com.barezen.ssh.ui.theme.BareZenTheme
 import com.barezen.ssh.ui.theme.scaledDensity
 
 @Composable
-fun App(model: AppModel) {
+fun App(model: AppModel, modifier: Modifier = Modifier) {
     val settings = model.settings.settings
     val dark = when (settings.theme) {
         Theme.DARK -> true
@@ -24,7 +25,7 @@ fun App(model: AppModel) {
         CompositionLocalProvider(
             LocalDensity provides scaledDensity(base, settings.uiScale),
         ) {
-            BareZenAppContent(model)
+            BareZenAppContent(model, modifier)
         }
     }
 }
