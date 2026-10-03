@@ -87,14 +87,32 @@ jobs:
           fi
 
       - name: 安装 Linux 打包依赖
-        # deb 走 dpkg-deb；AppImage 的 appimagetool 由 compose 插件自行下载
+        # deb 需要 dpkg-deb / fakeroot；AppImage 需要 appimagetool 合成单文件
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y dpkg-dev fakeroot
+          sudo apt-get install -y dpkg-dev fakeroot desktop-file-utils
+          # appimagetool 本身是个 AppImage，CI 无 FUSE，用 --appimage-extract 取内部二进制
+          APPIMAGETOOL=/usr/local/bin/appimagetool
+          curl -sL -o "$APPIMAGETOOL" \
+            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x "$APPIMAGETOOL"
+          cd "$(mktemp -d)"
+          "$APPIMAGETOOL" --appimage-extract >/dev/null
+          # 用解包后的 AppRun 当入口：它自带库与 PYTHONPATH，无需系统装 libappimage
+          printf '#!/bin/sh\nexec %s/squashfs-root/AppRun "$@"\n' "$(pwd)" > "$APPIMAGETOOL"
+          chmod +x "$APPIMAGETOOL"
+          "$APPIMAGETOOL" --version
 
       - name: 构建安装包
-        run: ./gradlew :desktopApp:packageDistributionForCurrentOS --stacktrace
+        # Linux 额外产出**单文件** AppImage：Compose 的 packageAppImage 只给目录，
+        # 单文件由 packageSingleAppImage 调 appimagetool 合成（见 desktopApp/build.gradle.kts）
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            ./gradlew :desktopApp:packageDistributionForCurrentOS :desktopApp:packageSingleAppImage --stacktrace
+          else
+            ./gradlew :desktopApp:packageDistributionForCurrentOS --stacktrace
+          fi
 
       - name: 收集产物
         shell: bash
