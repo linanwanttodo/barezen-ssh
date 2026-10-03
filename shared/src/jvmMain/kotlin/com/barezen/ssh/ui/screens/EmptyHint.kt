@@ -18,10 +18,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * 全屏统一空态（2026-10-02 截图终审，STATUS 3.4）：居中一列——28dp 弱图标（alpha 0.5）+ 一句话。
- * Dashboard / Files / Ports / Terminal 各屏空态共用此组件，不再各自手写居中布局；
- * modifier 传入 fillMaxSize 时整体垂直居中（终端屏用法），默认包内容尺寸；
- * 图标与文字都是灰阶（onSurfaceVariant），不引入任何彩色语义。
+ * 全屏统一空态：居中一列——弱图标 + 一句话（2026-10-03 随 apple.css 重设计：图标 28dp 描边灰）。
+ * Dashboard / Files / Ports / Terminal / AI 各屏空态共用此组件，不再各自手写居中布局。
+ * modifier 传入 fillMaxSize 时整体垂直居中（终端屏用法），默认包内容尺寸。
  */
 @Composable
 internal fun EmptyHint(
@@ -42,7 +41,7 @@ internal fun EmptyHint(
             icon,
             contentDescription = null,
             modifier = Modifier.size(28.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
         )
         Text(
             text,

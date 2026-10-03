@@ -10,13 +10,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,6 +26,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.barezen.ssh.servers.Server
 import com.barezen.ssh.servers.StoredAuth
+import com.barezen.ssh.ui.components.Btn
+import com.barezen.ssh.ui.components.BtnKind
+import com.barezen.ssh.ui.components.SegmentedControl
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -59,7 +59,7 @@ internal fun ServerEditDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             // 设计包组件表「对话框 8px 圆角」；原实现 16dp（简报笔误记作 12→8，按实际代码改）
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(12.dp),
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
         ) {
             Column(
@@ -99,13 +99,11 @@ internal fun ServerEditDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = !useKey, onClick = { useKey = false })
-                    Text("密码")
-                    Spacer(Modifier.width(16.dp))
-                    RadioButton(selected = useKey, onClick = { useKey = true })
-                    Text("私钥文件")
-                }
+                SegmentedControl(
+                    options = listOf("密码", "私钥文件"),
+                    selectedIndex = if (useKey) 1 else 0,
+                    onSelect = { useKey = it == 1 },
+                )
                 if (useKey) {
                     OutlinedTextField(
                         value = keyPath,
@@ -126,9 +124,10 @@ internal fun ServerEditDialog(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                 ) {
-                    TextButton(onClick = onDismiss) { Text("取消") }
-                    Button(
-                        onClick = {
+                    Btn("取消", onDismiss, kind = BtnKind.ghost)
+                    Btn(
+                        "保存",
+                        {
                             onSave(
                                 Server(
                                     id = server?.id ?: Uuid.random().toString(),
@@ -140,8 +139,9 @@ internal fun ServerEditDialog(
                                     auth = if (useKey) StoredAuth.Key(keyPath.trim()) else StoredAuth.Password,
                                 )
                             )
-                        }
-                    ) { Text("保存") }
+                        },
+                        kind = BtnKind.primary,
+                    )
                 }
             }
         }

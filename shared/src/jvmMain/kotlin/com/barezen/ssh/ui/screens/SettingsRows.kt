@@ -12,14 +12,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,10 +23,19 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.barezen.ssh.ui.components.Banner
+import com.barezen.ssh.ui.components.BadgeTone
+import com.barezen.ssh.ui.components.Btn
+import com.barezen.ssh.ui.components.BtnKind
+import com.barezen.ssh.ui.components.BzCard
+import com.barezen.ssh.ui.components.BzSwitch
+import com.barezen.ssh.ui.components.SegmentedControl
+import com.barezen.ssh.ui.theme.BareZenSpace
 
 /**
- * 设置行控件集。形状照设计包 `.setting-row` —— **分隔线行，不是卡片**：
- * `padding: 16px 0` + 底边 `1px border-subtle`（末行无）；无底色、无圆角、无整圈描边。
+ * 设置行控件集（apple.css `.setting-card` + `.setting-row`）：
+ * 行是 **panel 卡片内的一条横向分隔行**（padding 16/0 + 底边 1px border-subtle，末行无），
+ * 卡片本身才是有底色与描边的容器。行控件一律靠右，行高与 32dp 控件对齐。
  */
 
 @Composable
@@ -41,16 +46,16 @@ private fun RowShell(
 ) {
     Column(Modifier.fillMaxWidth()) {
         Row(
-            Modifier.fillMaxWidth().padding(vertical = 16.dp),
+            Modifier.fillMaxWidth().padding(vertical = BareZenSpace.lg),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(title, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Text(title, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 if (desc != null) {
                     Text(desc, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(BareZenSpace.md))
             trailing()
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -63,13 +68,14 @@ fun ToggleRow(
     desc: String?,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true,
 ) {
     RowShell(title, desc) {
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        BzSwitch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
     }
 }
 
-/** 分段选择。`enabled=false` 整体禁用；`disabledIndices` 用于「未实现」的个别选项（如浅色主题）。 */
+/** 分段选择。`disabledIndices` 用于「未实现」的个别选项（如浅色主题）。 */
 @Composable
 fun ChoiceRow(
     title: String,
@@ -81,18 +87,12 @@ fun ChoiceRow(
     onSelect: (Int) -> Unit,
 ) {
     RowShell(title, desc) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            options.forEachIndexed { i, label ->
-                // 禁用项：可见文案但不可点（不造假选项）
-                val itemEnabled = enabled && i !in disabledIndices
-                val selected = i == selectedIndex
-                if (selected) {
-                    Button(onClick = { onSelect(i) }, enabled = itemEnabled) { Text(label, fontSize = 12.sp) }
-                } else {
-                    OutlinedButton(onClick = { onSelect(i) }, enabled = itemEnabled) { Text(label, fontSize = 12.sp) }
-                }
-            }
-        }
+        SegmentedControl(
+            options = options,
+            selectedIndex = selectedIndex,
+            onSelect = onSelect,
+            disabledIndices = disabledIndices,
+        )
     }
 }
 
@@ -118,48 +118,48 @@ fun ActionRow(
     actions: List<Pair<String, () -> Unit>>,
 ) {
     RowShell(title, desc) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(BareZenSpace.sm)) {
             actions.forEach { (label, onClick) ->
-                OutlinedButton(onClick = onClick) { Text(label, fontSize = 12.sp) }
+                Btn(label, onClick, kind = BtnKind.secondary, small = true)
             }
         }
     }
 }
 
-/** 分类内容外壳：标题不进语义树（左栏选中项已播报同词）。 */
+/** 分类内容外壳（apple.css `.settings-content`）：标题 18/700 + 32 内边距。 */
 @Composable
 fun SettingsSectionScaffold(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(24.dp)) {
+    Column(Modifier.fillMaxWidth().padding(BareZenSpace.xxxl)) {
         Text(
             title,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.clearAndSetSemantics {},
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.clearAndSetSemantics {}.padding(bottom = BareZenSpace.xl),
         )
-        Spacer(Modifier.height(4.dp))
         Column(Modifier.fillMaxWidth(), content = content)
+    }
+}
+
+/**
+ * 设置卡片容器（apple.css `.setting-card`）：panel 底 + 描边 + 圆角 10，
+ * 上下内边距 0（由内部行的 padding 控制），行间 1px 分隔。
+ */
+@Composable
+fun SettingCard(content: @Composable ColumnScope.() -> Unit) {
+    BzCard(modifier = Modifier.fillMaxWidth(), contentPadding = 0.dp) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = BareZenSpace.xl), content = content)
     }
 }
 
 /** 顶部通知（加载告警 / 保存失败）。可关闭。 */
 @Composable
 fun SettingsNotice(text: String, onDismiss: () -> Unit) {
-    Surface(
+    Banner(
+        text = text,
+        tone = BadgeTone.error,
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.errorContainer,
-        shape = RoundedCornerShape(6.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
     ) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text,
-                modifier = Modifier.weight(1f),
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-            )
-            TextButton(onClick = onDismiss) { Text("知道了") }
-        }
+        Btn("知道了", onDismiss, kind = BtnKind.ghost, small = true)
     }
 }

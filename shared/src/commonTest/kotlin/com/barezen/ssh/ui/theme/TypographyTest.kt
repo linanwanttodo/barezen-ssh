@@ -13,7 +13,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
 /**
- * 断言值 = 设计包 index.html §3 字体与字号阶。
+ * 断言值 = docs/ui-redesign/apple.css 的字号阶。
  * 回退形态：CMP 1.12.1 的 `Font(FontResource,…)` 为 @Composable，字族与字号阶以
  * `@Composable get()` 暴露，故在组合内捕获后断言（brief 回退注记）。
  */
@@ -30,21 +30,24 @@ class TypographyTest {
         }
         waitForIdle()
         val t = assertNotNull(captured)
-        assertEquals(24.sp, t.titleLarge.fontSize)
-        assertEquals(31.2.sp, t.titleLarge.lineHeight)
+        // apple.css 字号阶：设置标题 18/700，正文 13，辅助 12，标签 11
+        assertEquals(20.sp, t.titleLarge.fontSize)
+        assertEquals(26.sp, t.titleLarge.lineHeight)
         assertEquals(FontWeight.Bold, t.titleLarge.fontWeight)
-        assertEquals(18.sp, t.titleMedium.fontSize)
-        assertEquals(25.2.sp, t.titleMedium.lineHeight)
-        assertEquals(FontWeight.Bold, t.titleMedium.fontWeight)
+        assertEquals(17.sp, t.titleMedium.fontSize)
+        assertEquals(23.sp, t.titleMedium.lineHeight)
+        assertEquals(FontWeight.SemiBold, t.titleMedium.fontWeight)
         assertEquals(15.sp, t.titleSmall.fontSize)
-        assertEquals(21.sp, t.titleSmall.lineHeight)
+        assertEquals(20.sp, t.titleSmall.lineHeight)
         assertEquals(FontWeight.SemiBold, t.titleSmall.fontWeight)
-        assertEquals(14.sp, t.bodyLarge.fontSize)
-        assertEquals(22.4.sp, t.bodyLarge.lineHeight)
-        assertEquals(12.sp, t.bodyMedium.fontSize)
-        assertEquals(18.sp, t.bodyMedium.lineHeight)
-        assertEquals(11.sp, t.labelLarge.fontSize)
-        assertEquals(15.4.sp, t.labelLarge.lineHeight)
+        assertEquals(13.sp, t.bodyLarge.fontSize)
+        assertEquals(20.sp, t.bodyLarge.lineHeight)
+        assertEquals(13.sp, t.bodyMedium.fontSize)
+        assertEquals(20.sp, t.bodyMedium.lineHeight)
+        assertEquals(12.sp, t.bodySmall.fontSize)
+        assertEquals(13.sp, t.labelLarge.fontSize)
+        assertEquals(12.sp, t.labelMedium.fontSize)
+        assertEquals(11.sp, t.labelSmall.fontSize)
         assertEquals(FontWeight.Medium, t.labelLarge.fontWeight)
         assertEquals(uiFamily, t.titleLarge.fontFamily)
     }
@@ -64,7 +67,7 @@ class TypographyTest {
         waitForIdle()
         val b = assertNotNull(body)
         assertEquals(13.sp, b.fontSize)
-        assertEquals(19.5.sp, b.lineHeight)
+        assertEquals(20.sp, b.lineHeight)
         assertEquals(monoFamily, b.fontFamily)
         val s = assertNotNull(small)
         assertEquals(11.sp, s.fontSize)

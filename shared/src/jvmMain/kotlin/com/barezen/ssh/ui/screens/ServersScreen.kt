@@ -3,20 +3,21 @@ package com.barezen.ssh.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,19 +26,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.barezen.ssh.app.AppModel
 import com.barezen.ssh.servers.Server
 import com.barezen.ssh.ssh.ConnectionState
+import com.barezen.ssh.ui.components.Btn
+import com.barezen.ssh.ui.components.BtnKind
+import com.barezen.ssh.ui.theme.BareZenSpace
 
 /**
- * 服务器列表屏（prototype §S1）：横幅 / 搜索 / 标签筛选 / 服务器卡片网格 + 新建、编辑对话框。
+ * 服务器列表屏（apple.html `#servers`）：warn 横幅 / 搜索 + 标签筛选 / 280px 自适应卡片网格 /
+ * 底部「+ 新建服务器」。
  *
- * 展示部件（头部 / 空态 / 卡片 / 瓦片 / 徽章 / 编辑对话框）在 ServersScreenParts.kt。
- *
- * LazyVerticalGrid 即整屏滚动容器（头部为跨全宽 span 项）——
- * 不能把 LazyVerticalGrid 放进 verticalScroll 的 Column（会被
- * checkScrollableContainerConstraints 以「infinity maximum height」拒绝）。
+ * LazyVerticalGrid 即整屏滚动容器（头部为跨全宽 span 项）——不能把 LazyVerticalGrid 放进
+ * verticalScroll 的 Column（会被 checkScrollableContainerConstraints 以 infinity maximum height 拒绝）。
  */
 @Composable
 fun ServersScreen(
@@ -49,21 +53,26 @@ fun ServersScreen(
     var editing by remember { mutableStateOf<Server?>(null) }
 
     val servers = model.servers
-    // 「已连接」= 该服务器存在**至少一条 Connected 会话**（可能多条）。它不再是单值：
-    // 多会话下同一台机器可以连开两条，用单个 id 判会漏掉其余会话。
+    // 「已连接」= 该服务器存在**至少一条 Connected 会话**（可能多条）
     val connectedIds = model.registry.sessions
         .filter { it.state is ConnectionState.Connected }
         .map { it.server.id }
         .toSet()
+
     Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 300.dp),
+            columns = GridCells.Adaptive(minSize = 280.dp),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 96.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(
+                start = BareZenSpace.xxxl,
+                top = BareZenSpace.xl,
+                end = BareZenSpace.xxxl,
+                bottom = 96.dp,
+            ),
+            horizontalArrangement = Arrangement.spacedBy(BareZenSpace.lg),
+            verticalArrangement = Arrangement.spacedBy(BareZenSpace.lg),
         ) {
-            // 设计包 §服务器屏·空态 mock 无头部（横幅/搜索/标签）→ 真空态只留空态块；
+            // 设计包：真空态无头部（横幅/搜索/标签）→ 只留空态块；
             // 筛选空态（有服务器但匹配为空）保留头部，否则搜索框消失无法恢复。
             if (servers.isNotEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
@@ -83,8 +92,7 @@ fun ServersScreen(
                         server = server,
                         hideAddresses = model.settings.settings.hideAddresses,
                         connected = server.id in connectedIds,
-                        // 延迟只属于**活动会话**：非活动会话的往返时延不代表这台机器当前的可用性，
-                        // 拿它冒充会让用户误以为该卡就是前台会话。
+                        // 延迟只属于**活动会话**：非活动会话的往返时延不代表这台机器当前的可用性。
                         activeLatencyMs = model.registry.active
                             ?.takeIf { it.server.id == server.id && it.state is ConnectionState.Connected }
                             ?.let { (it.state as ConnectionState.Connected).latencyMs },
@@ -98,17 +106,22 @@ fun ServersScreen(
             }
         }
 
-        // 右下角新建（设计稿 right/bottom 24px，primary = accent/onAccent）；
-        // 真空态按编排裁决不渲染（空态块自带「新建服务器」按钮，避免同文案双节点）。
+        // 底部新建（apple.html `.screen-footer` 右对齐；真空态按编排不渲染，空态块自带按钮）
         if (servers.isNotEmpty()) {
-            Button(
-                onClick = { editing = null; dialogOpen = true },
-                modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
-                shape = RoundedCornerShape(6.dp),
+            Row(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .fillMaxWidth()
+                    .padding(end = BareZenSpace.xxl, bottom = BareZenSpace.xxl),
+                horizontalArrangement = Arrangement.End,
             ) {
-                Icon(Icons.Filled.Add, contentDescription = null)
-                Spacer(Modifier.width(6.dp))
-                Text("新建服务器")
+                Btn(
+                    "新建服务器",
+                    { editing = null; dialogOpen = true },
+                    kind = BtnKind.primary,
+                    icon = Icons.Filled.Add,
+                    iconContentDescription = null,
+                )
             }
         }
     }

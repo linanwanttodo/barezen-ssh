@@ -6,6 +6,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -16,36 +17,47 @@ import androidx.compose.ui.test.v2.runComposeUiTest
 import com.barezen.ssh.ui.shell.BareZenAppContent
 import com.barezen.ssh.ui.theme.BareZenTheme
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class AppShellTest {
     @OptIn(ExperimentalTestApi::class)
     @Test fun sidebarShowsAllDestinationsAndNavigates() = runComposeUiTest {
         setContent { BareZenTheme { BareZenAppContent(model = AppModel.forUiTest()) } }
-        // 六目的地照设计包 IA 顺序（仪表盘首位）
-        listOf("仪表盘", "服务器", "终端", "文件", "端口转发", "设置").forEach {
-            onNodeWithText(it).assertIsDisplayed()
+        // 六目的地照设计包 IA 顺序（仪表盘首位）。用 testTag 定位：
+        // 标题栏同步渲染同名屏名，按纯文本查会命中两个节点。
+        val navs = listOf(
+            "DASHBOARD" to "仪表盘", "SERVERS" to "服务器", "TERMINAL" to "终端",
+            "FILES" to "文件", "PORTS" to "端口转发", "SETTINGS" to "设置",
+        )
+        navs.forEach { (key, _) ->
+            onNodeWithTag("sidebar-nav-$key").assertIsDisplayed()
         }
         // 默认目的地仍是服务器（功能优先，落点不换）
         onNodeWithText("暂无服务器").assertIsDisplayed()
-        onNodeWithText("终端").performClick()
+        onNodeWithTag("sidebar-nav-TERMINAL").performClick()
         onNodeWithText("在服务器列表选择「新建终端」以开始。").assertIsDisplayed()
-        onNodeWithText("文件").performClick()
-        onNodeWithText("连接后可管理文件").assertIsDisplayed()
-        onNodeWithText("设置").performClick()
-        // 设置屏默认落在「外观」分类（本任务该分类为过渡空壳，真实内容在后续任务落地）
+        onNodeWithTag("sidebar-nav-FILES").performClick()
+        onNodeWithText("在本地与远程主机之间拖拽传输文件").assertIsDisplayed()
+        onNodeWithTag("sidebar-nav-SETTINGS").performClick()
+        // 设置屏默认落在「外观」分类
         onNodeWithText("外观").assertIsDisplayed()
-        onNodeWithText("仪表盘").performClick()
-        onNodeWithText("数据来源：SSH 主机指标").assertIsDisplayed()
+        onNodeWithTag("sidebar-nav-DASHBOARD").performClick()
+        onNodeWithText("实时监控 SSH 主机的关键指标").assertIsDisplayed()
     }
 
     @OptIn(ExperimentalTestApi::class)
     @Test fun sidebarCollapsesToIconsAndExpandsBack() = runComposeUiTest {
         setContent { BareZenTheme { BareZenAppContent(model = AppModel.forUiTest()) } }
-        onNodeWithText("服务器").assertIsDisplayed()
+        // 展开态：导航项既有文字也有 tag
+        onNodeWithTag("sidebar-nav-SERVERS").assertIsDisplayed()
+        assertTrue(onAllNodesWithText("服务器").fetchSemanticsNodes().isNotEmpty())
         onNodeWithTag("sidebar-toggle").performClick()          // 收起
-        onNodeWithText("服务器").assertDoesNotExist()           // 文字标签隐藏（精确匹配，不误中「新建服务器」）
+        // 收起态：导航项仍在（仅剩图标），但**文字标签不再渲染**
+        onNodeWithTag("sidebar-nav-SERVERS").assertIsDisplayed()
+        assertEquals(1, onAllNodesWithText("服务器").fetchSemanticsNodes().size)  // 只剩标题栏的屏名
         onNodeWithTag("sidebar-toggle").performClick()          // 展开
-        onNodeWithText("服务器").assertIsDisplayed()
+        assertTrue(onAllNodesWithText("服务器").fetchSemanticsNodes().size >= 2) // 导航标签 + 屏名
     }
 
     /**
@@ -57,14 +69,14 @@ class AppShellTest {
     @Test fun keyboardTabReachesEveryDestinationInVisualOrder() = runComposeUiTest {
         setContent { BareZenTheme { BareZenAppContent(model = AppModel.forUiTest()) } }
 
-        onNodeWithText("仪表盘").requestFocus().assertIsFocused()
+        onNodeWithTag("sidebar-nav-DASHBOARD").requestFocus().assertIsFocused()
 
-        listOf("服务器", "终端", "文件", "端口转发", "设置").forEach { label ->
+        listOf("SERVERS", "TERMINAL", "FILES", "PORTS", "SETTINGS").forEach { key ->
             onRoot().performKeyInput {
                 keyDown(Key.Tab)
                 keyUp(Key.Tab)
             }
-            onNodeWithText(label).assertIsFocused()
+            onNodeWithTag("sidebar-nav-$key").assertIsFocused()
         }
 
         onRoot().performKeyInput {

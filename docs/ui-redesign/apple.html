@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BareZen-SSH</title>
+  <link rel="stylesheet" href="apple.css">
+</head>
+<body>
+  <div class="app-shell">
+    <div class="app-body">
+      <aside class="app-sidebar" id="sidebar" aria-label="主导航">
+        <div class="app-brand">
+          <div class="app-brand-mark">BZ</div>
+          <div class="app-brand-text">
+            <span class="app-brand-name">BareZen</span>
+            <span class="app-brand-sub">SSH 客户端</span>
+          </div>
+        </div>
+
+        <nav class="app-nav" aria-label="功能导航">
+          <button class="nav-item" data-screen="dashboard" type="button">
+            <span class="nav-icon" aria-hidden="true">○</span>
+            <span class="nav-label">仪表盘</span>
+          </button>
+          <button class="nav-item" data-screen="servers" type="button">
+            <span class="nav-icon" aria-hidden="true">▦</span>
+            <span class="nav-label">服务器</span>
+          </button>
+          <button class="nav-item active" data-screen="terminal" type="button" aria-current="page">
+            <span class="nav-icon" aria-hidden="true">&gt;_</span>
+            <span class="nav-label">终端</span>
+          </button>
+          <button class="nav-item" data-screen="files" type="button">
+            <span class="nav-icon" aria-hidden="true">☰</span>
+            <span class="nav-label">文件</span>
+          </button>
+          <button class="nav-item" data-screen="forwards" type="button">
+            <span class="nav-icon" aria-hidden="true">⇄</span>
+            <span class="nav-label">端口转发</span>
+            <span class="badge">2</span>
+          </button>
+          <button class="nav-item" data-screen="settings" type="button">
+            <span class="nav-icon" aria-hidden="true">⚙</span>
+            <span class="nav-label">设置</span>
+          </button>
+        </nav>
+
+        <div class="app-sidebar-footer">
+          <span class="status-dot on"></span>
+          <span class="footer-text">1 台已连接</span>
+        </div>
+      </aside>
+
+      <main class="app-main" id="main">
+        <header class="app-titlebar">
+          <div class="titlebar-left">
+            <span class="titlebar-screen-name" id="titlebarScreenName">终端</span>
+          </div>
+          <div class="titlebar-right">
+            <button class="titlebar-btn" type="button" aria-label="搜索">Q</button>
+            <button class="titlebar-btn" type="button" aria-label="命令面板">⌘K</button>
+          </div>
+        </header>
+
+        <!-- 仪表盘 -->
+        <section class="screen" id="dashboard" aria-labelledby="dashboard-title" data-name="仪表盘">
+          <div class="screen-header">
+            <p class="screen-subtitle">实时监控 SSH 主机的关键指标</p>
+            <div class="header-tools">
+              <select class="select" aria-label="选择服务器">
+                <option>生产网关</option>
+                <option>测试节点 A</option>
+                <option>海外缓存</option>
+              </select>
+              <span class="header-note">数据来源：SSH 主机指标</span>
+              <button class="btn secondary" type="button">刷新</button>
+            </div>
+          </div>
+
+          <div class="metric-grid">
+            <div class="metric-card cpu">
+              <div class="metric-label">CPU 使用率</div>
+              <div class="metric-value">12<span class="metric-unit">%</span></div>
+              <div class="metric-trend stable">平稳</div>
+            </div>
+            <div class="metric-card mem">
+              <div class="metric-label">内存使用</div>
+              <div class="metric-value">62<span class="metric-unit">%</span></div>
+              <div class="metric-trend up">+3%</div>
+            </div>
+            <div class="metric-card load">
+              <div class="metric-label">平均负载</div>
+              <div class="metric-value">0.42</div>
+              <div class="metric-trend stable">正常</div>
+            </div>
+            <div class="metric-card uptime">
+              <div class="metric-label">运行时间</div>
+              <div class="metric-value">45<span class="metric-unit">天</span></div>
+              <div class="metric-trend stable">稳定</div>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-head">
+              <div class="chart-title">CPU / 内存 / 网络趋势</div>
+              <div class="chart-legend">
+                <span class="legend-item"><span class="legend-dot cpu"></span>CPU</span>
+                <span class="legend-item"><span class="legend-dot mem"></span>内存</span>
+                <span class="legend-item"><span class="legend-dot net"></span>网络</span>
+              </div>
+            </div>
+            <div class="chart-placeholder">图表占位区域</div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-head">
+              <div class="chart-title">磁盘用量</div>
+              <span class="chart-meta">已用 42G / 98G</span>
+            </div>
+            <div class="chart-placeholder">图表占位区域</div>
+          </div>
+        </section>
+
+        <!-- 服务器 -->
+        <section class="screen" id="servers" aria-labelledby="servers-title" data-name="服务器">
+          <div class="banner warn">
+            <span class="banner-icon" aria-hidden="true">!</span>
+            <span class="banner-text">3 台服务器未连接</span>
+            <button class="btn ghost sm" type="button">全部重连</button>
+          </div>
+
+          <div class="toolbar">
+            <input class="input search" type="text" placeholder="按名称、地址或标签搜索服务器" aria-label="搜索服务器">
+            <div class="chip-group">
+              <button class="chip active" type="button">全部</button>
+              <button class="chip" type="button">生产</button>
+              <button class="chip" type="button">测试</button>
+              <button class="chip" type="button">海外</button>
+            </div>
+          </div>
+
+          <div class="server-grid">
+            <article class="server-card">
+              <div class="server-card-header">
+                <div class="server-card-meta">
+                  <div class="server-card-title">生产网关</div>
+                  <div class="server-card-sub">gateway.example.com:22</div>
+                </div>
+                <button class="icon-btn" type="button" aria-label="编辑服务器">编辑</button>
+              </div>
+              <div class="server-card-stats">
+                <div class="stat">
+                  <div class="stat-label">负载</div>
+                  <div class="stat-value">0.42</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-label">内存</div>
+                  <div class="stat-value">62%</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-label">运行</div>
+                  <div class="stat-value">45d</div>
+                </div>
+              </div>
+              <div class="status-row">
+                <span class="status-dot on"></span>
+                <span>已连接 · 24 ms</span>
+              </div>
+              <div class="actions">
+                <button class="btn primary" type="button">新建终端</button>
+                <button class="btn secondary" type="button">文件传输</button>
+              </div>
+            </article>
+
+            <article class="server-card">
+              <div class="server-card-header">
+                <div class="server-card-meta">
+                  <div class="server-card-title">测试节点 A</div>
+                  <div class="server-card-sub">10.0.0.12:22</div>
+                  <div class="chip-row"><span class="chip sm">测试</span></div>
+                </div>
+                <button class="icon-btn" type="button" aria-label="编辑服务器">编辑</button>
+              </div>
+              <div class="server-hint">连接后查看负载、内存和运行时间。</div>
+              <div class="status-row">
+                <span class="status-dot"></span>
+                <span>未连接</span>
+              </div>
+              <div class="actions">
+                <button class="btn primary" type="button">新建终端</button>
+                <button class="btn secondary" type="button">文件传输</button>
+              </div>
+            </article>
+
+            <article class="server-card">
+              <div class="server-card-header">
+                <div class="server-card-meta">
+                  <div class="server-card-title">海外缓存</div>
+                  <div class="server-card-sub">cache.sg.example.com:22</div>
+                  <div class="chip-row"><span class="chip sm">海外</span></div>
+                </div>
+                <button class="icon-btn" type="button" aria-label="编辑服务器">编辑</button>
+              </div>
+              <div class="server-hint">连接后查看负载、内存和运行时间。</div>
+              <div class="status-row">
+                <span class="status-dot"></span>
+                <span>未连接</span>
+              </div>
+              <div class="actions">
+                <button class="btn primary" type="button">新建终端</button>
+                <button class="btn secondary" type="button">文件传输</button>
+              </div>
+            </article>
+          </div>
+
+          <div class="screen-footer">
+            <button class="btn primary" type="button">+ 新建服务器</button>
+          </div>
+        </section>
+
+        <!-- 终端 -->
+        <section class="screen terminal active" id="terminal" aria-labelledby="terminal-title" data-name="终端">
+          <h2 id="terminal-title" class="sr-only">终端</h2>
+          <div class="terminal-wrap ai-open" id="terminalWrap">
+            <div class="tab-strip">
+              <button class="tab active" type="button">
+                <span class="tab-dot"></span>
+                <span>生产网关</span>
+                <span class="tab-close" aria-label="关闭标签页" role="button">×</span>
+              </button>
+              <button class="tab add-tab" type="button" aria-label="新建标签页">+</button>
+              <button class="tab ai-toggle" id="aiToggle" type="button">
+                <span class="ai-toggle-dot"></span>
+                <span>助手</span>
+              </button>
+            </div>
+
+            <div class="terminal-body">
+              <div class="terminal-area" role="log" aria-live="polite" aria-label="终端输出"><span class="prompt">ubuntu@gateway:~$</span> <span class="cmd">uptime</span>
+<span class="out"> 14:32:10 up 45 days,  3:12,  1 user,  load average: 0.42, 0.38, 0.31</span>
+<span class="prompt">ubuntu@gateway:~$</span> <span class="cmd">df -h</span>
+<span class="out">Filesystem      Size  Used Avail Use%</span>
+<span class="out">/dev/sda1        98G   42G   52G  45%</span>
+<span class="prompt">ubuntu@gateway:~$</span> <span class="cmd cursor">_</span></div>
+
+              <aside class="ai-sidebar" aria-label="AI 运维侧栏">
+                <div class="ai-header">
+                  <div class="ai-header-title">
+                    <span class="ai-header-dot"></span>
+                    <span>运维助手</span>
+                  </div>
+                  <button class="icon-btn sm" id="aiClose" type="button" aria-label="收起 AI 侧栏">收起</button>
+                </div>
+
+                <div class="ai-body">
+                  <div class="ai-placeholder">
+                    <div class="ai-placeholder-icon">AI</div>
+                    <div class="ai-placeholder-title">选择模型后开始对话</div>
+                    <div class="ai-placeholder-sub">批准的命令将注入当前终端</div>
+                  </div>
+                </div>
+
+                <div class="ai-composer">
+                  <div class="ai-composer-top">
+                    <button class="ai-context-btn" type="button">
+                      <span class="ai-context-icon">▦</span>
+                      <span>生产网关</span>
+                      <span class="ai-caret">▾</span>
+                    </button>
+                    <button class="ai-mode-btn" type="button">
+                      <span>运维模式</span>
+                      <span class="ai-caret">▾</span>
+                    </button>
+                  </div>
+
+                  <div class="ai-input-wrap">
+                    <textarea class="ai-input" rows="1" placeholder="输入运维指令或问题..."></textarea>
+                    <button class="ai-attach" type="button" aria-label="添加附件">+</button>
+                    <button class="ai-send" type="button" aria-label="发送">↑</button>
+                  </div>
+
+                  <div class="ai-composer-bottom">
+                    <div class="ai-permissions">
+                      <button class="perm-chip active" type="button">自动</button>
+                      <button class="perm-chip" type="button">Yolo</button>
+                    </div>
+                    <button class="ai-model-info" type="button">
+                      <span class="ai-model-name">GLM-5.3-Flash</span>
+                      <span class="ai-model-sep">·</span>
+                      <span class="ai-model-temp">High</span>
+                    </button>
+                  </div>
+                </div>
+              </aside>
+            </div>
+
+            <div class="status-bar">
+              <span class="status-dot on"></span>
+              <span>已连接</span>
+              <span class="sep">|</span>
+              <span>生产网关</span>
+              <span class="sep">|</span>
+              <span>SSH 往返 24 ms</span>
+              <span class="metric">
+                <span>负载 0.42</span>
+                <span>内存 62%</span>
+                <span>运行 45d</span>
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <!-- 文件 -->
+        <section class="screen" id="files" aria-labelledby="files-title" data-name="文件">
+          <div class="screen-header">
+            <p class="screen-subtitle">在本地与远程主机之间拖拽传输文件</p>
+            <div class="actions">
+              <button class="btn secondary" type="button">上传</button>
+              <button class="btn secondary" type="button">下载</button>
+            </div>
+          </div>
+
+          <div class="file-workspace">
+            <div class="file-pane">
+              <div class="file-pane-header">
+                <span>本地</span>
+                <span class="file-pane-meta">4 项</span>
+              </div>
+              <div class="file-pathbar">
+                <button class="icon-btn" type="button" aria-label="上级目录">↑</button>
+                <input class="input" value="/home/user/project" aria-label="本地路径">
+              </div>
+              <div class="file-list">
+                <div class="file-row head"><span class="name">名称</span><span>大小</span><span>修改时间</span></div>
+                <div class="file-row"><span class="name">src</span><span>—</span><span>2026-09-20</span></div>
+                <div class="file-row"><span class="name">docs</span><span>—</span><span>2026-09-22</span></div>
+                <div class="file-row"><span class="name">notes.txt</span><span>12 KB</span><span>2026-09-25</span></div>
+                <div class="file-row"><span class="name">build.gradle</span><span>4 KB</span><span>2026-09-24</span></div>
+              </div>
+            </div>
+
+            <div class="file-pane">
+              <div class="file-pane-header">
+                <span>远程</span>
+                <span class="file-pane-meta">3 项</span>
+              </div>
+              <div class="file-pathbar">
+                <button class="icon-btn" type="button" aria-label="上级目录">↑</button>
+                <input class="input" value="/home/ubuntu" aria-label="远程路径">
+              </div>
+              <div class="file-list">
+                <div class="file-row head"><span class="name">名称</span><span>大小</span><span>修改时间</span></div>
+                <div class="file-row"><span class="name">logs</span><span>—</span><span>2026-09-21</span></div>
+                <div class="file-row"><span class="name">app.jar</span><span>28 MB</span><span>2026-09-23</span></div>
+                <div class="file-row"><span class="name">.bashrc</span><span>3 KB</span><span>2026-08-15</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="transfer-queue">
+            <span class="tq-label">传输队列</span>
+            <span class="tq-status">0 个活跃任务</span>
+          </div>
+        </section>
+
+        <!-- 端口转发 -->
+        <section class="screen" id="forwards" aria-labelledby="forwards-title" data-name="端口转发">
+          <div class="screen-header">
+            <p class="screen-subtitle">通过 SSH 隧道转发本地或远程端口</p>
+            <button class="btn primary" type="button">+ 新建转发</button>
+          </div>
+
+          <div class="banner">
+            <span class="banner-icon" aria-hidden="true">i</span>
+            <span class="banner-text">活动转发 2 条；需要先建立 SSH 连接才能启动新的转发。</span>
+          </div>
+
+          <div class="pf-form">
+            <div class="pf-tabs" role="tablist" aria-label="转发类型">
+              <button class="pf-tab active" type="button" role="tab">本地监听</button>
+              <button class="pf-tab" type="button" role="tab">服务器监听</button>
+              <button class="pf-tab" type="button" role="tab">SOCKS5</button>
+            </div>
+            <div class="pf-fields">
+              <div class="pf-field">
+                <label for="pf-local">本地端口</label>
+                <input class="input" id="pf-local" value="8080">
+              </div>
+              <div class="pf-field">
+                <label for="pf-remote-host">远程主机</label>
+                <input class="input" id="pf-remote-host" value="127.0.0.1">
+              </div>
+              <div class="pf-field">
+                <label for="pf-remote-port">远程端口</label>
+                <input class="input" id="pf-remote-port" value="80">
+              </div>
+            </div>
+            <div class="pf-form-footer">
+              <span class="pf-server">选择服务器：生产网关</span>
+              <div class="actions">
+                <button class="btn ghost sm" type="button">取消</button>
+                <button class="btn primary sm" type="button">保存规则</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="pf-list-title">已保存的规则</div>
+            <div class="pf-rule">
+              <span class="badge">本地</span>
+              <span class="meta">localhost:3306 → db.internal:3306</span>
+              <button class="btn ghost sm" type="button">启动</button>
+            </div>
+            <div class="pf-rule">
+              <span class="badge">服务器</span>
+              <span class="meta">0.0.0.0:8080 → localhost:8080</span>
+              <button class="btn ghost sm" type="button">启动</button>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="pf-list-title">活动转发</div>
+            <div class="pf-rule active">
+              <span class="badge">本地</span>
+              <span class="meta">localhost:8080 → 127.0.0.1:80</span>
+              <span class="pf-meta-extra">已运行 12 分钟</span>
+              <button class="btn ghost sm text-error" type="button">停止</button>
+            </div>
+            <div class="pf-rule active">
+              <span class="badge">SOCKS5</span>
+              <span class="meta">localhost:1080</span>
+              <span class="pf-meta-extra">已运行 45 分钟</span>
+              <button class="btn ghost sm text-error" type="button">停止</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 设置 -->
+        <section class="screen settings" id="settings" aria-labelledby="settings-title" data-name="设置">
+          <h2 id="settings-title" class="sr-only">设置</h2>
+          <div class="settings-layout">
+            <aside class="settings-nav" aria-label="设置分类">
+              <button class="settings-nav-item active" data-section="settings-appearance" type="button">外观</button>
+              <button class="settings-nav-item" data-section="settings-terminal" type="button">终端</button>
+              <button class="settings-nav-item" data-section="settings-connection" type="button">连接</button>
+              <button class="settings-nav-item" data-section="settings-ai" type="button">智能助手</button>
+              <button class="settings-nav-item" data-section="settings-credentials" type="button">凭据</button>
+              <button class="settings-nav-item" data-section="settings-storage" type="button">存储</button>
+              <button class="settings-nav-item" data-section="settings-update" type="button">更新</button>
+              <button class="settings-nav-item" data-section="settings-about" type="button">关于</button>
+            </aside>
+
+            <div class="settings-content" id="settingsContent">
+              <div class="settings-section active" id="settings-appearance">
+                <h3>外观</h3>
+                <div class="setting-card">
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">主题</div>
+                      <div class="setting-desc">应用整体颜色模式</div>
+                    </div>
+                    <div class="segmented-control">
+                      <button type="button" class="active">浅色</button>
+                      <button type="button">深色</button>
+                      <button type="button">自动</button>
+                    </div>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">强调色</div>
+                    </div>
+                    <div class="color-dots">
+                      <button type="button" class="color-dot active" style="--c:#0071E3" aria-label="蓝色"></button>
+                      <button type="button" class="color-dot" style="--c:#34C759" aria-label="绿色"></button>
+                      <button type="button" class="color-dot" style="--c:#FF9500" aria-label="橙色"></button>
+                      <button type="button" class="color-dot" style="--c:#FF3B30" aria-label="红色"></button>
+                      <button type="button" class="color-dot" style="--c:#AF52DE" aria-label="紫色"></button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="setting-card">
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">界面字体</div>
+                      <div class="setting-desc">系统界面字体</div>
+                    </div>
+                    <select class="select sm">
+                      <option>SF Pro / PingFang SC</option>
+                      <option>JetBrains Mono</option>
+                      <option>系统默认</option>
+                    </select>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">界面缩放</div>
+                    </div>
+                    <div class="range-with-value">
+                      <input type="range" min="80" max="150" value="100" class="slider" data-format="percent">
+                      <span class="range-value">100%</span>
+                    </div>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">显示语言</div>
+                    </div>
+                    <select class="select sm">
+                      <option>简体中文</option>
+                      <option>繁體中文</option>
+                      <option>English</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-section" id="settings-terminal">
+                <h3>终端</h3>
+                <div class="setting-card">
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">终端字体</div>
+                      <div class="setting-desc">等宽字体用于命令行显示</div>
+                    </div>
+                    <select class="select sm">
+                      <option>JetBrains Mono 13px</option>
+                      <option>Fira Code 13px</option>
+                      <option>SF Mono 13px</option>
+                    </select>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">光标样式</div>
+                    </div>
+                    <div class="segmented-control">
+                      <button type="button" class="active">块状</button>
+                      <button type="button">下划线</button>
+                      <button type="button">竖线</button>
+                    </div>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">字号</div>
+                    </div>
+                    <div class="range-with-value">
+                      <input type="range" min="10" max="20" value="13" class="slider" data-format="px">
+                      <span class="range-value">13px</span>
+                    </div>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">行高</div>
+                    </div>
+                    <div class="range-with-value">
+                      <input type="range" min="100" max="200" value="140" class="slider" data-format="line-height">
+                      <span class="range-value">1.4</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="setting-card">
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">滚动条始终可见</div>
+                    </div>
+                    <label class="toggle">
+                      <input type="checkbox" checked>
+                      <span class="toggle-track"></span>
+                    </label>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">终端响铃</div>
+                    </div>
+                    <label class="toggle">
+                      <input type="checkbox">
+                      <span class="toggle-track"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-section" id="settings-connection">
+                <h3>连接</h3>
+                <div class="setting-card">
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">默认端口</div>
+                      <div class="setting-desc">新建服务器时使用的默认 SSH 端口</div>
+                    </div>
+                    <input type="number" class="input sm" value="22" style="width:80px;text-align:center;">
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">连接超时</div>
+                      <div class="setting-desc">等待服务器响应的最长时间</div>
+                    </div>
+                    <div class="range-with-value">
+                      <input type="range" min="5" max="120" value="30" class="slider" data-format="seconds">
+                      <span class="range-value">30 秒</span>
+                    </div>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">KeepAlive 间隔</div>
+                      <div class="setting-desc">定期发送心跳包保持连接</div>
+                    </div>
+                    <div class="range-with-value">
+                      <input type="range" min="0" max="300" value="60" step="10" class="slider" data-format="seconds">
+                      <span class="range-value">60 秒</span>
+                    </div>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">SSH 代理</div>
+                    </div>
+                    <select class="select sm">
+                      <option>无</option>
+                      <option>SOCKS5</option>
+                      <option>HTTP</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="setting-card">
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">严格主机密钥检查</div>
+                      <div class="setting-desc">连接未知主机时要求确认</div>
+                    </div>
+                    <label class="toggle">
+                      <input type="checkbox" checked>
+                      <span class="toggle-track"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-section" id="settings-ai">
+                <h3>智能助手</h3>
+                <div class="setting-card">
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">启用 AI 运维助手</div>
+                      <div class="setting-desc">在终端侧栏提供命令建议与解释</div>
+                    </div>
+                    <label class="toggle">
+                      <input type="checkbox" checked>
+                      <span class="toggle-track"></span>
+                    </label>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">模型提供方</div>
+                    </div>
+                    <select class="select sm">
+                      <option>OpenAI</option>
+                      <option>Anthropic</option>
+                      <option>本地 Ollama</option>
+                    </select>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">模型</div>
+                    </div>
+                    <select class="select sm">
+                      <option>GLM-5.3-Flash</option>
+                      <option>gpt-4o-mini</option>
+                      <option>claude-3-5-sonnet</option>
+                    </select>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">温度</div>
+                      <div class="setting-desc">较低值输出更确定，较高值更具创造性</div>
+                    </div>
+                    <div class="range-with-value">
+                      <input type="range" min="0" max="100" value="30" class="slider" data-format="temperature">
+                      <span class="range-value">0.3</span>
+                    </div>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">自动批准低风险命令</div>
+                      <div class="setting-desc">读取类命令无需二次确认</div>
+                    </div>
+                    <label class="toggle">
+                      <input type="checkbox" checked>
+                      <span class="toggle-track"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-section" id="settings-credentials">
+                <h3>凭据</h3>
+                <div class="setting-card">
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">私钥存储路径</div>
+                      <div class="setting-desc">~/.ssh</div>
+                    </div>
+                    <div class="input-with-btn">
+                      <input type="text" class="input sm" value="~/.ssh" readonly>
+                      <button type="button" class="btn secondary sm">更改</button>
+                    </div>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">默认认证方式</div>
+                    </div>
+                    <div class="segmented-control">
+                      <button type="button" class="active">私钥</button>
+                      <button type="button">密码</button>
+                      <button type="button">Agent</button>
+                    </div>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">记住服务器密码</div>
+                      <div class="setting-desc">使用系统钥匙串安全存储</div>
+                    </div>
+                    <label class="toggle">
+                      <input type="checkbox" checked>
+                      <span class="toggle-track"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-section" id="settings-storage">
+                <h3>存储</h3>
+                <div class="setting-card">
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">本地缓存</div>
+                      <div class="setting-desc">日志、缩略图与临时文件</div>
+                    </div>
+                    <button type="button" class="btn secondary sm">清理 124 MB</button>
+                  </div>
+                  <div class="setting-row">
+                    <div class="storage-block">
+                      <div class="storage-bar">
+                        <div class="storage-used" style="width:42%;"></div>
+                      </div>
+                      <div class="storage-legend">已用 124 MB / 总计 300 MB</div>
+                    </div>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">自动清理超过 30 天的缓存</div>
+                    </div>
+                    <label class="toggle">
+                      <input type="checkbox" checked>
+                      <span class="toggle-track"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-section" id="settings-update">
+                <h3>更新</h3>
+                <div class="setting-card">
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">自动检查更新</div>
+                    </div>
+                    <label class="toggle">
+                      <input type="checkbox" checked>
+                      <span class="toggle-track"></span>
+                    </label>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">检查频率</div>
+                    </div>
+                    <select class="select sm">
+                      <option>每天</option>
+                      <option selected>每周</option>
+                      <option>每月</option>
+                    </select>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">Beta 版本</div>
+                      <div class="setting-desc">接收预览版更新</div>
+                    </div>
+                    <label class="toggle">
+                      <input type="checkbox">
+                      <span class="toggle-track"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-section" id="settings-about">
+                <h3>关于</h3>
+                <div class="setting-card about-card">
+                  <div class="about-header">
+                    <div class="about-icon">BZ</div>
+                    <div>
+                      <div class="about-name">BareZen-SSH</div>
+                      <div class="about-version">版本 2.0.0</div>
+                    </div>
+                  </div>
+                  <div class="about-meta">
+                    <div><span>构建号</span><span>2026.1002.1</span></div>
+                    <div><span>Compose</span><span>1.7.0</span></div>
+                    <div><span>JDK</span><span>21</span></div>
+                  </div>
+                </div>
+                <div class="setting-card">
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">检查更新</div>
+                    </div>
+                    <button type="button" class="btn secondary sm">立即检查</button>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">查看日志</div>
+                    </div>
+                    <button type="button" class="btn secondary sm">打开</button>
+                  </div>
+                  <div class="setting-row">
+                    <div class="setting-info">
+                      <div class="setting-label">开源许可</div>
+                    </div>
+                    <button type="button" class="btn ghost sm">查看</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      // Sidebar navigation: switch screens + update titlebar name
+      var navItems = document.querySelectorAll('.nav-item[data-screen]');
+      var screens = document.querySelectorAll('.screen');
+      var titlebarName = document.getElementById('titlebarScreenName');
+
+      navItems.forEach(function (item) {
+        item.addEventListener('click', function () {
+          var target = item.dataset.screen;
+          navItems.forEach(function (n) {
+            n.classList.remove('active');
+            n.removeAttribute('aria-current');
+          });
+          item.classList.add('active');
+          item.setAttribute('aria-current', 'page');
+          var activeScreen = null;
+          screens.forEach(function (s) {
+            var isActive = s.id === target;
+            s.classList.toggle('active', isActive);
+            if (isActive) activeScreen = s;
+          });
+          if (titlebarName && activeScreen) {
+            titlebarName.textContent = activeScreen.dataset.name || '';
+          }
+        });
+      });
+
+      // Terminal AI sidebar toggle
+      var terminalWrap = document.getElementById('terminalWrap');
+      var aiToggle = document.getElementById('aiToggle');
+      var aiClose = document.getElementById('aiClose');
+      if (aiToggle) {
+        aiToggle.addEventListener('click', function () {
+          terminalWrap.classList.toggle('ai-open');
+        });
+      }
+      if (aiClose) {
+        aiClose.addEventListener('click', function () {
+          terminalWrap.classList.remove('ai-open');
+        });
+      }
+
+      // Settings navigation: switch sections (IDs prefixed with settings- to avoid collision)
+      var settingsNavItems = document.querySelectorAll('.settings-nav-item[data-section]');
+      var settingsSections = document.querySelectorAll('.settings-section');
+
+      settingsNavItems.forEach(function (item) {
+        item.addEventListener('click', function () {
+          var targetId = item.dataset.section;
+          var targetSection = document.getElementById(targetId);
+
+          settingsNavItems.forEach(function (n) {
+            n.classList.remove('active');
+          });
+          item.classList.add('active');
+
+          if (targetSection) {
+            settingsSections.forEach(function (s) {
+              s.classList.remove('active');
+            });
+            targetSection.classList.add('active');
+          }
+        });
+      });
+
+      // Segmented controls
+      document.querySelectorAll('.segmented-control').forEach(function (group) {
+        group.querySelectorAll('button').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            group.querySelectorAll('button').forEach(function (b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+          });
+        });
+      });
+
+      // Color accent dots
+      document.querySelectorAll('.color-dots').forEach(function (group) {
+        group.querySelectorAll('.color-dot').forEach(function (dot) {
+          dot.addEventListener('click', function () {
+            group.querySelectorAll('.color-dot').forEach(function (d) { d.classList.remove('active'); });
+            dot.classList.add('active');
+          });
+        });
+      });
+
+      // Port-forward tabs
+      document.querySelectorAll('.pf-tabs').forEach(function (group) {
+        group.querySelectorAll('.pf-tab').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            group.querySelectorAll('.pf-tab').forEach(function (b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+          });
+        });
+      });
+
+      // Filter chips
+      document.querySelectorAll('.chip-group').forEach(function (group) {
+        group.querySelectorAll('.chip').forEach(function (chip) {
+          chip.addEventListener('click', function () {
+            group.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('active'); });
+            chip.classList.add('active');
+          });
+        });
+      });
+
+      // AI composer permission chips
+      document.querySelectorAll('.ai-permissions').forEach(function (group) {
+        group.querySelectorAll('.perm-chip').forEach(function (chip) {
+          chip.addEventListener('click', function () {
+            group.querySelectorAll('.perm-chip').forEach(function (c) { c.classList.remove('active'); });
+            chip.classList.add('active');
+          });
+        });
+      });
+
+      // Sliders update their value label using data-format
+      document.querySelectorAll('.slider').forEach(function (slider) {
+        function update() {
+          var wrap = slider.closest('.range-with-value');
+          if (!wrap) return;
+          var label = wrap.querySelector('.range-value');
+          if (!label) return;
+          var val = parseInt(slider.value, 10);
+          var fmt = slider.dataset.format;
+          if (fmt === 'percent') label.textContent = val + '%';
+          else if (fmt === 'px') label.textContent = val + 'px';
+          else if (fmt === 'line-height') label.textContent = (val / 100).toFixed(1);
+          else if (fmt === 'seconds') label.textContent = val + ' 秒';
+          else if (fmt === 'temperature') label.textContent = (val / 100).toFixed(1);
+          else label.textContent = val;
+        }
+        slider.addEventListener('input', update);
+        update();
+      });
+    })();
+  </script>
+</body>
+</html>

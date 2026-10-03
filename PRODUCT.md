@@ -12,7 +12,7 @@ product
 
 BareZen-SSH 是跨平台（Linux / Windows / macOS）桌面 SSH 客户端：以终端会话为中心，集成 SFTP 文件管理、本地/远程/动态端口转发、系统钥匙串凭据管理、远程服务器实时仪表盘（CPU/内存/磁盘/网络）、与终端共用同一会话的 AI 运维侧栏（读取滚动缓冲区、经审批注入命令），并带完整自动更新（GitHub Releases）。成功标准：日常运维全程无需再打开任何其他 SSH 工具。
 
-界面基准：视觉与中文文案 1:1 参考 DBX（github.com/t8y2/dbx，设计令牌见其 apps/desktop/src/styles/tokens.css；2026-10-02 用户截图终审收口）——只搬视觉与词表，不搬运其源码。配色纪律（STATUS 3.4 终审版）：UI 仅黑、白、灰三色，无彩色强调；红色 0xFFF3625F 是唯一保留语义色，仅用于警告/错误；终端 ANSI 配色不动（命令输出是数据）。设计与实现细节见 `docs/superpowers/specs/2026-09-24-barezen-ui-features-design.md`，可点击原型见 `docs/ui/prototype.html`。
+界面基准：**Apple 体系**（`docs/ui-redesign/apple.html` + `apple.css`，2026-10-03 用户拍板）——只搬视觉与词表。取其色相、层次、圆角与间距；WCAG 纪律优先于取色字面值：apple.css 原配色有 8 处不达 AA，本项目逐条反解为达标值（四组偏离与全部对比度证据见 `docs/STATUS.md` §3.5.2，由 `ThemeColorsTest` 锁定）。accent 蓝同时承担填充与文字两角色时存在结构性矛盾，故拆为 `Accent`（填充/图标）与 `AccentOnSubtle`（文字）两个令牌——这是本项目 UI 层的硬约束。仪表盘数据系列（蓝/绿/橙/紫）属数据可视化，按非文本构件 3:1 门槛；终端 ANSI 配色不动（命令输出是数据，不是 UI 装饰）。设计与实现细节见 `docs/STATUS.md` §3.5。
 
 ## Brand Personality
 

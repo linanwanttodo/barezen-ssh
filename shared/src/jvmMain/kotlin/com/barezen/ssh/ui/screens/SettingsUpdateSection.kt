@@ -2,9 +2,10 @@
 package com.barezen.ssh.ui.screens
 
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -23,6 +24,7 @@ import com.barezen.ssh.app.SettingsModel
 import com.barezen.ssh.settings.UpdateChannel
 import com.barezen.ssh.settings.UpdateChecker
 import com.barezen.ssh.settings.UpdateResult
+import com.barezen.ssh.ui.theme.BareZenSpace
 import kotlinx.coroutines.launch
 
 private val REPO_REGEX = Regex("""^[\w.-]+/[\w.-]+$""")
@@ -41,6 +43,7 @@ fun UpdateSettingsSection(settings: SettingsModel, checker: UpdateChecker) {
     var checking by remember { mutableStateOf(false) }
 
     // 更新源：placeholder owner/repo；格式合法即生效并保存（即时生效，D5）
+    SettingCard {
     OutlinedTextField(
         value = repoInput,
         onValueChange = {
@@ -59,6 +62,8 @@ fun UpdateSettingsSection(settings: SettingsModel, checker: UpdateChecker) {
         modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp).testTag("update-repo-input"),
     )
 
+    }
+    SettingCard {
     val channelLabels = listOf("稳定", "预览")
     val channels = listOf(UpdateChannel.STABLE, UpdateChannel.PREVIEW)
     ChoiceRow(
@@ -76,39 +81,33 @@ fun UpdateSettingsSection(settings: SettingsModel, checker: UpdateChecker) {
         onCheckedChange = { v -> settings.update { it.copy(autoCheckUpdates = v) } },
     )
 
-    // 立即检查：updateRepo 为空时禁用（不造数：没配置就别说能检查）
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        ColumnHelper2(
-            title = "立即检查",
-            desc = if (s.updateRepo.isNullOrBlank()) "请先填写更新源" else null,
-            modifier = Modifier.weight(1f),
-        )
-        val enabled = !s.updateRepo.isNullOrBlank() && !checking
-        Button(
-            onClick = {
-                val repo = s.updateRepo ?: return@Button
-                checking = true
-                checkResult = "正在检查…"
-                scope.launch {
-                    val r = checker.check(repo, s.updateChannel, com.barezen.ssh.BuildInfo.VERSION)
-                    checkResult = describe(r)
-                    checking = false
-                }
-            },
-            enabled = enabled,
-            modifier = Modifier.testTag("update-check-button"),
-        ) { Text("立即检查", fontSize = 12.sp) }
     }
-
-    Text(
-        checkResult,
-        fontSize = 12.sp,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(bottom = 8.dp),
-    )
+    // 立即检查：updateRepo 为空时禁用（不造数：没配置就别说能检查）
+    SettingCard {
+        ActionRow(
+            title = "立即检查",
+            desc = if (s.updateRepo.isNullOrBlank()) "请先填写更新源" else checkResult,
+            actions = listOf("立即检查" to {
+                val repo = s.updateRepo
+                if (repo != null && repo.isNotBlank()) {
+                    checking = true
+                    checkResult = "正在检查…"
+                    scope.launch {
+                        val r = checker.check(repo, s.updateChannel, com.barezen.ssh.BuildInfo.VERSION)
+                        checkResult = describe(r)
+                        checking = false
+                    }
+                }
+            }),
+        )
+        Spacer(Modifier.height(BareZenSpace.md))
+        Text(
+            checkResult,
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = BareZenSpace.lg),
+        )
+    }
 }
 
 private fun describe(r: UpdateResult): String = when (r) {
@@ -117,15 +116,4 @@ private fun describe(r: UpdateResult): String = when (r) {
     is UpdateResult.NewerAvailable -> "发现新版本 ${r.latest}（当前 ${com.barezen.ssh.BuildInfo.VERSION}）"
     is UpdateResult.Uncomparable -> "最新发布为 ${r.latest}，但版本号格式无法比较"
     is UpdateResult.Failed -> r.message
-}
-
-/** 两行文本（标题 + 可选描述），供「立即检查」行使用。 */
-@Composable
-private fun ColumnHelper2(title: String, desc: String?, modifier: Modifier = Modifier) {
-    androidx.compose.foundation.layout.Column(modifier) {
-        Text(title, fontSize = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
-        if (desc != null) {
-            Text(desc, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
 }

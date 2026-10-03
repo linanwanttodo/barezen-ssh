@@ -288,9 +288,75 @@ spec `f0c6b1c` 批准后按 §6 分刀推进，每刀独立提交、门禁全绿
 | 非活动会话远端断线探测（spec §9 R1） | 本轮明确不做，仍为技术债 |
 | 后台会话的指标/终端 widget | 按 spec §2.2「单活动前台 + 多后台连接保留」：后台只保持 SSH 连接，不轮询、不渲染 |
 
+## 3.5 界面重设计：Apple 体系（2026-10-03，用户拍板，覆盖 3.4 的黑白灰配色）
+
+设计基准改为 `docs/ui-redesign/apple.html` + `apple.css`（Apple HIG 暗色体系）。
+本节**覆盖 3.4 第 1、2 条**（黑白灰三色 / 红色唯一语义色），其余 3.4 条不变。
+
+### 3.5.1 范围
+
+| 层 | 内容 |
+|---|---|
+| 底座 | `Color.kt` 全量换 apple 取值 + 亮暗两板；`Theme.kt` 加 `LocalBareZenColors`（M3 装不下的补充令牌）与 `BareZenSpace`/`BareZenSize`；`Type.kt` 字号阶按 apple 重取，新增等宽指标样式 |
+| 控件库 | 新增 `ui/components/Components.kt`：Btn / FilterChipPill / Badge / Banner / BzCard / StatusDot / SegmentedControl / BzSwitch / BzSlider —— 各屏不再手写 Material 默认形态 |
+| 外壳 | 224px 侧栏（品牌块 + 34dp 导航 + 底部连接计数）、48px 标题栏（屏名 + 搜索/命令面板）、12px 圆角内容容器（终端/设置满铺，其余内缩） |
+| 六屏 | 仪表盘（顶部色条指标卡 + 图例 + 图表卡）、服务器（warn 横幅 + 搜索/筛选 chip + 280px 卡片网格）、终端（38dp 标签条 + 状态栏）、文件（pane + 三列表 + 44dp 传输队列条）、端口转发（类型 tab + 三列字段 + 规则/活动双卡）、设置（左列分类 + setting-card 行体系 + 分段/开关/滑杆） |
+| 对话框 | 连接确认（分段认证 + 钥匙串明示）、服务器编辑 |
+
+### 3.5.2 与 apple.css 的四处偏离（全部为 WCAG 让路，逐条有据）
+
+apple.css 原配色有 8 处不达 AA，而本项目把 AA 列为硬约束，故取「apple 的色相与层次 + 满足 AA 的明度」：
+
+| 令牌 | apple.css | 本项目 | 理由 |
+|---|---|---|---|
+| `textTertiary` | `#6E6E73` | `#94949A` | 原值在 bg 上 3.36:1、elevated 上 2.75:1（需 4.5） |
+| `onAccent` | 纯白 | 近黑 `#0A0A0C` | 白字压 accent `#0A84FF` 仅 3.65:1 |
+| `error` 族 | `#FF453A` | `#FF7B74` / 容器上 `#FF9A93` | 原值在 elevated 上 4.09:1、压 14% tint 上 4.27:1 |
+| 亮色板 | — | 逐个按 AA 反解 | textTertiary `#67676E`、error `#BB3330`、warning `#8A5A00`、success `#16682C` |
+
+**由此确立两条结构性约束**（已写进 `Color.kt` 文件头与测试）：
+
+1. **accent 不可兼任填充与暗底文字**。能让白字达标的深蓝（≥`#005FCC` 系）做暗底文字必然不足 4.5:1。
+   故 `BareZenAccent`（`#0A84FF`）只做**填充/图标**，`BareZenAccentOnSubtle`（`#44A0FC`）才是**文字**。
+   焦点环因此改用后者——细描边必须用文字级亮度才看得见。
+2. **错误文字一律走 `BareZenOnErrorContainer`**，不走裸 `error`。
+
+### 3.5.3 AI 侧栏归属变更
+
+AI 运维侧栏从**壳级最右常驻列**移入**终端屏内**（320dp，点标签条「助手」出现）。
+理由：它与终端共享同一会话（读滚动缓冲、注入命令），离开终端屏即失去这两项能力；
+常年挂在壳级会占走 320dp 却只对终端有用。组件 `AiPanel` 更名 `AiSidebar`，宽度常量不变。
+
+### 3.5.4 测试变更（均为设计重写导致的断言更新，非削弱）
+
+| 用例 | 变更 | 理由 |
+|---|---|---|
+| `ThemeColorsTest` | 全量重写 | 锁 apple 取值 + **四组 AA 证据**（暗/亮全覆盖、tint 合成、指标色 3:1） |
+| `TypographyTest` | 断言值更新 | 字号阶改为 apple 的 20/17/15/13/12/11 |
+| `UiColorAlignmentTest` | tertiary 断言反转 | 旧规则「tertiary = 中性 accent」出自黑白灰期；新调色板下 tertiary 承载运行时间指标色（紫），与 accent 混同会让四个指标卡失去区分度 |
+| `FocusRingTest` | 像素色改为 `AccentOnSubtle`；设置分类项改为**节点区域内**计数 | 全屏计数被「performClick 后焦点仍在主导航」污染（主导航的环像素更多）；整屏计数是基线污染，不是没画环 |
+| `AiPanelTest` | 改用 `AiSidebar`；新增收起回调/会话名/钥匙串降级三例 | 组件移入终端屏后的新契约 |
+| 各屏测试 | 词表与布局断言更新 | 新文案（副标题取代屏内重复标题、「保存规则」取代「添加」等）；重复文案改用 `onAllNodesWithText` 计数 |
+| `AppShellTest`/`FocusRingTest`/`SettingsScreenTest` | 导航项改用 `testTag` | 标题栏按 apple 设计同步渲染屏名，纯文本定位必然二义（CONVENTIONS §4.3） |
+
+新增 `ComponentsTest` 8 例锁控件库契约（禁用按钮不触发回调、分段控件单项禁用、开关翻转等）。
+
+**门禁：575 例 / 0 失败**（重设计前 567）。
+
+### 3.5.5 已知未完成项
+
+| 项 | 说明 |
+|---|---|
+| 命令面板 / 全局搜索 | 标题栏按钮按「不造功能」呈现为**禁用占位**，未实现 |
+| 文件页本地 pane | `SftpModel` 只有一个 cwd，只呈现远程 pane；原型是本地/远程双栏各自独立浏览，属尚未接入的能力，未做假双栏 |
+| 端口转发 SOCKS5 | 类型 tab 第三项禁用并标注「即将支持」，底层 sshj 0.40 无实现 |
+| 设置·强调色可选 | 单一真源在 `Color.kt`，做成多点可选即假控件，故只读展示当前 accent |
+| 亮色板 Warning 变体 | 亮板 `warning` 已按 AA 定值，UI 消费点仍少（见 §2 小项池） |
+
 ## 4. 历史决策记录（不要重开讨论）
 
 1. 语言混编（2026-10-02 用户拍板）：Java 管解析/JNA/库包装，Kotlin 管 UI/状态。
-2. UI 基线：DBX 设计令牌，暗色优先，亮色板已启用（2026-10-02 完成）。
+2. UI 基线：**Apple 体系**（`docs/ui-redesign/apple.css`），暗色优先，亮色板已启用。
+   2026-10-02 起用 DBX 令牌 + 黑白灰配色，同日被 §3.5 取代。
 3. 通知图标：完整启动图标位图，不做单色剪影（用户明确否决过剪影方案）。
 4. 动态转发、P6 AI：未决策前 UI 显式标注，不造功能。

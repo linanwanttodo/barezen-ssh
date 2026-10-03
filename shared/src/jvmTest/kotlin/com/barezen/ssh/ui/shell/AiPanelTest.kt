@@ -17,6 +17,8 @@ import com.barezen.ssh.app.AiConfig
 import com.barezen.ssh.app.AiKeyStore
 import com.barezen.ssh.app.AiTransport
 import com.barezen.ssh.app.AiRequest
+import androidx.compose.runtime.CompositionLocalProvider
+import com.barezen.ssh.terminal.LocalTerminalBridge
 import com.barezen.ssh.terminal.TerminalBridge
 import com.barezen.ssh.ssh.ShellChannel
 import com.barezen.ssh.ui.theme.BareZenTheme
@@ -42,7 +44,10 @@ private data class AiChoice(val delta: AiDelta = AiDelta())
 @kotlinx.serialization.Serializable
 private data class AiDelta(val content: String? = null)
 
-/** T-7：AI 面板 UI。rail 切换、无 key 禁用、审批注入全流程、上下文附带。零网络。 */
+/**
+ * T-7：AI 运维侧栏 UI（2026-10-03 随重设计移入终端屏，组件改名 [AiSidebar]）。
+ * 覆盖：未配置禁用与引导、审批注入全流程、上下文附带、已配置启用。零网络。
+ */
 @OptIn(ExperimentalTestApi::class)
 class AiPanelTest {
 
@@ -92,15 +97,30 @@ class AiPanelTest {
     }
 
     @Test
-    fun railToggleEmitsCallback() = runComposeUiTest {
-        var toggled = false
+    fun closeButtonInvokesCallback() = runComposeUiTest {
+        var closed = false
         setContent {
             BareZenTheme {
-                AiPanel(chatWith("x"), FakeKeys(), null, expanded = false, onToggle = { toggled = true })
+                AiSidebar(
+                    chat = chatWith("x"),
+                    keys = FakeKeys(),
+                    sessionName = "生产网关",
+                    onClose = { closed = true },
+                )
             }
         }
-        onNodeWithTag("ai-panel-toggle").performClick()
-        assertTrue(toggled)
+        onNodeWithText("收起").performClick()
+        assertTrue(closed)
+    }
+
+    @Test
+    fun sidebarShowsSessionNameAsContext() = runComposeUiTest {
+        setContent {
+            BareZenTheme {
+                AiSidebar(chatWith("x"), FakeKeys(), sessionName = "生产网关", onClose = {})
+            }
+        }
+        onNodeWithText("生产网关").assertIsDisplayed()
     }
 
     @Test
@@ -112,7 +132,7 @@ class AiPanelTest {
         )
         setContent {
             BareZenTheme {
-                AiPanel(chat, FakeKeys().apply { deleteKey() }, null, expanded = true, onToggle = {})
+                AiSidebar(chat, FakeKeys().apply { deleteKey() }, sessionName = null, onClose = {})
             }
         }
         onNodeWithTag("ai-input").assertIsNotEnabled()
@@ -130,7 +150,9 @@ class AiPanelTest {
         val (bridge, channel) = bridgeWithLines("idle")
         setContent {
             BareZenTheme {
-                AiPanel(chat, FakeKeys(), bridge, expanded = true, onToggle = {})
+                CompositionLocalProvider(LocalTerminalBridge provides bridge) {
+                    AiSidebar(chat, FakeKeys(), sessionName = "生产网关", onClose = {})
+                }
             }
         }
         onNodeWithTag("ai-input").performTextInput("查一下负载")
@@ -153,11 +175,11 @@ class AiPanelTest {
 
     @Test
     fun injectConfirmWithoutChannelShowsErrorAndKeepsDialog() = runComposeUiTest {
-        // 回复含提示符行 → 候选命令 df -h（避开模板转义，用 Unicode 反引号的等价路径覆盖围栏块之外）
+        // 回复含提示符行 → 候选命令 df -h
         val chat = chatWith("看磁盘：" + System.lineSeparator() + "$ df -h")
         setContent {
             BareZenTheme {
-                AiPanel(chat, FakeKeys(), null, expanded = true, onToggle = {}) // 无桥接：无会话可注入
+                AiSidebar(chat, FakeKeys(), sessionName = null, onClose = {}) // 无桥接：无会话可注入
             }
         }
         onNodeWithTag("ai-input").performTextInput("看磁盘")
@@ -175,7 +197,9 @@ class AiPanelTest {
         val (bridge, _) = bridgeWithLines("proc a", "proc b", "proc c")
         setContent {
             BareZenTheme {
-                AiPanel(chat, FakeKeys(), bridge, expanded = true, onToggle = {})
+                CompositionLocalProvider(LocalTerminalBridge provides bridge) {
+                    AiSidebar(chat, FakeKeys(), sessionName = "生产网关", onClose = {})
+                }
             }
         }
         onNodeWithTag("ai-context-switch").performClick()
@@ -192,7 +216,7 @@ class AiPanelTest {
         val chat = chatWith("好的")
         setContent {
             BareZenTheme {
-                AiPanel(chat, FakeKeys(), null, expanded = true, onToggle = {}) // 开关开了但没有会话
+                AiSidebar(chat, FakeKeys(), sessionName = null, onClose = {}) // 开关开了但没有会话
             }
         }
         onNodeWithTag("ai-context-switch").performClick()
@@ -207,12 +231,32 @@ class AiPanelTest {
     fun configuredPanelEnablesInputAndSend() = runComposeUiTest {
         setContent {
             BareZenTheme {
-                AiPanel(chatWith("x"), FakeKeys(), null, expanded = true, onToggle = {})
+                AiSidebar(chatWith("x"), FakeKeys(), sessionName = "生产网关", onClose = {})
             }
         }
         onNodeWithTag("ai-input").assertIsEnabled()
         onNodeWithTag("ai-send").assertIsNotEnabled() // 空输入时发送禁用
         onNodeWithTag("ai-input").performTextInput("在吗")
         onNodeWithTag("ai-send").assertIsEnabled()
+    }
+
+    @Test
+    fun keychainFallbackNoticeIsVisible() = runComposeUiTest {
+        setContent {
+            BareZenTheme {
+                AiSidebar(
+                    chat = chatWith("x"),
+                    keys = object : AiKeyStore {
+                        override fun loadKey(): String? = "k"
+                        override fun saveKey(key: String) {}
+                        override fun deleteKey() {}
+                        override val keychainAvailable: Boolean = false
+                    },
+                    sessionName = "生产网关",
+                    onClose = {},
+                )
+            }
+        }
+        onNodeWithText("系统钥匙串不可用，API key 仅保存在内存").assertIsDisplayed()
     }
 }

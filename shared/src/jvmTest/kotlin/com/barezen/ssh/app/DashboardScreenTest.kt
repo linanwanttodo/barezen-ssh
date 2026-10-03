@@ -43,16 +43,18 @@ class DashboardScreenTest {
     @OptIn(ExperimentalTestApi::class)
     @Test fun disconnectedShowsPlaceholdersAndDisabledButtons() = runComposeUiTest {
         setContent { BareZenTheme { DashboardScreen() } }
-        onNodeWithText("仪表盘").assertIsDisplayed()
-        onNodeWithText("选择服务器").assertIsNotEnabled()
+        onNodeWithText("实时监控 SSH 主机的关键指标").assertIsDisplayed()
+        // 未连接：刷新禁用（不造数——没连接就不给可点的「刷新真数据」入口）
         onNodeWithText("刷新").assertIsNotEnabled()
         onNodeWithText("数据来源：SSH 主机指标").assertIsDisplayed()
-        listOf("CPU", "内存", "平均负载", "运行时间").forEach { onNodeWithText(it).assertIsDisplayed() }
-        // 四个指标值均为 —，绝无示例数值
-        assertTrue(onAllNodesWithText("—").fetchSemanticsNodes().size == 4)
+        listOf("CPU 使用率", "内存使用", "平均负载", "运行时间").forEach { onNodeWithText(it).assertIsDisplayed() }
+        // 四个指标值均为 —，绝无示例数值。
+        // 「—」在屏上共 9 处（4 个值位 + 4 个 trend 副行 + 1 个磁盘汇总），
+        // 故锁「至少 4 个」而非精确计数——精确计数会随 trend 副行增减而脆裂。
+        assertTrue(onAllNodesWithText("—").fetchSemanticsNodes().size >= 4)
         // 图表卡为空态占位文案（两张图表卡各一处）
         assertTrue(onAllNodesWithText("连接后显示主机指标").fetchSemanticsNodes().size == 2)
-        onNodeWithText("CPU 使用率（最近 60 次采样）").assertIsDisplayed()
+        onNodeWithText("CPU / 内存 / 网络趋势").assertIsDisplayed()
         onNodeWithText("磁盘用量").assertIsDisplayed()
     }
 
@@ -61,12 +63,12 @@ class DashboardScreenTest {
     @OptIn(ExperimentalTestApi::class)
     @Test fun connectedShowsLiveValues() = runComposeUiTest {
         setContent { BareZenTheme { DashboardScreen(liveSnapshot, connected = true, onRefresh = {}) } }
-        onNodeWithText("12%").assertIsDisplayed()                     // CPU 12.4 取整
-        onNodeWithText("38%").assertIsDisplayed()                     // 内存占用
-        onNodeWithText("已用 3.0 GB / 总 8.0 GB").assertIsDisplayed() // 内存副行
-        onNodeWithText("0.52").assertIsDisplayed()                    // load1
-        onNodeWithText("5 分钟 0.58 / 15 分钟 0.59").assertIsDisplayed()
-        onNodeWithText("1 天 2 小时").assertIsDisplayed()             // 93720s
+        onNodeWithText("12%").assertIsDisplayed()               // CPU 12.4 取整
+        onNodeWithText("38%").assertIsDisplayed()               // 内存占用
+        onNodeWithText("已用 38%").assertIsDisplayed()           // 内存副行
+        onNodeWithText("0.52").assertIsDisplayed()              // load1
+        onNodeWithText("5 分钟 0.58").assertIsDisplayed()
+        onNodeWithText("1").assertIsDisplayed()                 // 运行 1 天（紧凑写法）
         onNodeWithText("刷新").assertIsEnabled()
         // 磁盘条：挂载点与用量
         onNodeWithText("/").assertIsDisplayed()
@@ -75,13 +77,15 @@ class DashboardScreenTest {
         onNodeWithText("50%").assertIsDisplayed()
         // 单个 CPU 采样尚不足画折线：空态提示
         onNodeWithText("等待主机指标").assertIsDisplayed()
+        // 磁盘汇总行（真数据，不造数）
+        onNodeWithText("已用 36.8 G / 88.3 G").assertIsDisplayed()
     }
 
     @OptIn(ExperimentalTestApi::class)
     @Test fun failedCollectionFallsBackToPlaceholderValue() = runComposeUiTest {
         // 采集失败（snapshot 为 null）但已连接：值位回退 —，不得造数
         setContent { BareZenTheme { DashboardScreen(null, connected = true, onRefresh = {}) } }
-        assertTrue(onAllNodesWithText("—").fetchSemanticsNodes().size == 4)
+        assertTrue(onAllNodesWithText("—").fetchSemanticsNodes().size >= 4)
         onNodeWithText("刷新").assertIsEnabled()
     }
 
@@ -121,7 +125,7 @@ class DashboardScreenTest {
             onAllNodesWithText("0.52").fetchSemanticsNodes().isNotEmpty()
         }
         onNodeWithText("0.52").assertIsDisplayed()
-        onNodeWithText("1 天 2 小时").assertIsDisplayed()
+        onNodeWithText("1").assertIsDisplayed()   // 运行 1 天
         onNodeWithText("33%").assertIsDisplayed()
     }
 

@@ -15,33 +15,35 @@ import com.barezen.ssh.ui.screens.SettingsScreen
 import com.barezen.ssh.ui.theme.BareZenTheme
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class PlaceholderScreensTest {
     @OptIn(ExperimentalTestApi::class)
     @Test fun filesScreenSkeleton() = runComposeUiTest {
         // FilesScreen 重写后：未连接态整屏提示，全部操作禁用（不造数）
         setContent { BareZenTheme { FilesScreen() } }
-        onNodeWithText("文件传输").assertIsDisplayed()
+        onNodeWithText("在本地与远程主机之间拖拽传输文件").assertIsDisplayed()
         onNodeWithText("上传").assertIsNotEnabled()
-        onNodeWithText("刷新").assertIsNotEnabled()
-        onNodeWithText("新建文件夹").assertIsNotEnabled()
+        onNodeWithText("下载").assertIsNotEnabled()
+        // 传输队列条恒在（44dp 底条），空态显示「0 个活跃任务」
+        onNodeWithText("传输队列").assertIsDisplayed()
         onNodeWithText("连接后可管理文件").assertIsDisplayed()
     }
 
     @OptIn(ExperimentalTestApi::class)
     @Test fun dashboardScreenHoldsMetricSlotsNotNumbers() = runComposeUiTest {
         setContent { BareZenTheme { DashboardScreen() } }
-        onNodeWithText("仪表盘").assertIsDisplayed()
-        onNodeWithText("选择服务器").assertIsNotEnabled()
+        onNodeWithText("实时监控 SSH 主机的关键指标").assertIsDisplayed()
         onNodeWithText("刷新").assertIsNotEnabled()
         onNodeWithText("数据来源：SSH 主机指标").assertIsDisplayed()
-        listOf("CPU", "内存", "平均负载", "运行时间").forEach { onNodeWithText(it).assertIsDisplayed() }
-        onNodeWithText("CPU 使用率（最近 60 次采样）").assertIsDisplayed()
+        listOf("CPU 使用率", "内存使用", "平均负载", "运行时间").forEach { onNodeWithText(it).assertIsDisplayed() }
+        onNodeWithText("CPU / 内存 / 网络趋势").assertIsDisplayed()
         onNodeWithText("磁盘用量").assertIsDisplayed()
         // 空态占位文案：两张图表卡各一处
         assertEquals(2, onAllNodesWithText("连接后显示主机指标").fetchSemanticsNodes().size)
-        // 四个指标值均为 —，绝无示例数值（brief 授权的 assertAny 回退写法：恰 4 个节点）
-        assertEquals(4, onAllNodesWithText("—").fetchSemanticsNodes().size)
+        // 四个指标值均为 —，绝无示例数值。trend 副行与磁盘汇总同样渲染 —，
+        // 所以锁「至少 4 个」而不是精确计数。
+        assertTrue(onAllNodesWithText("—").fetchSemanticsNodes().size >= 4)
     }
 
     // portsScreenHoldsRealZeroCount 已删除：PortsScreen 重写为真实功能屏，

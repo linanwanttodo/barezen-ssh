@@ -23,6 +23,9 @@ import androidx.compose.ui.unit.sp
 import com.barezen.ssh.app.AiKeyStore
 import com.barezen.ssh.app.SettingsModel
 import com.barezen.ssh.settings.AppSettings
+import com.barezen.ssh.ui.components.Btn
+import com.barezen.ssh.ui.components.BtnKind
+import com.barezen.ssh.ui.theme.BareZenSpace
 
 /**
  * 设置 · 智能助手（T-7）：OpenAI 兼容 API 的三项配置。
@@ -37,7 +40,11 @@ internal fun AiSettingsSection(settings: SettingsModel, keys: AiKeyStore) {
     val s = settings.settings
 
     SettingsSectionScaffold("智能助手") {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      SettingCard {
+        Column(
+            Modifier.padding(vertical = BareZenSpace.lg),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             OutlinedTextField(
                 value = s.aiEndpoint,
                 onValueChange = { v -> settings.update { it.copy(aiEndpoint = v) } },
@@ -80,16 +87,17 @@ internal fun AiSettingsSection(settings: SettingsModel, keys: AiKeyStore) {
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().testTag("ai-key-input"),
             )
-            Row {
-                TextButton(
-                    onClick = {
+            Row(horizontalArrangement = Arrangement.spacedBy(BareZenSpace.sm)) {
+                Btn(
+                    if (keyDraft.isBlank()) "删除 Key" else "保存 Key",
+                    {
                         if (keyDraft.isBlank()) keys.deleteKey() else keys.saveKey(keyDraft)
                     },
-                    modifier = Modifier.testTag("ai-key-save"),
-                ) {
-                    Text(if (keyDraft.isBlank()) "删除 Key" else "保存 Key")
-                }
+                    kind = BtnKind.secondary,
+                    small = true,
+                )
             }
         }
+      }
     }
 }

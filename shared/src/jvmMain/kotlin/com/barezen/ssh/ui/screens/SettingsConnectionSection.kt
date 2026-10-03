@@ -12,6 +12,7 @@ fun ConnectionSettingsSection(settings: SettingsModel, servers: List<Server>) {
     val s = settings.settings
 
     SettingsSectionScaffold("连接") {
+      SettingCard {
         // 启动时连接：选一台，不是连全部（启动连 N 台会一次打出 N 条 SSH 连接）
         val labels = listOf("不自动连接") + servers.map { it.name.ifBlank { it.host } }
         val selectedIndex = servers.indexOfFirst { it.id == s.autoConnectServerId }
@@ -50,5 +51,6 @@ fun ConnectionSettingsSection(settings: SettingsModel, servers: List<Server>) {
             selectedIndex = policies.indexOf(s.conflictPolicy).coerceAtLeast(0),
             onSelect = { i -> settings.update { it.copy(conflictPolicy = policies[i]) } },
         )
+      }
     }
 }

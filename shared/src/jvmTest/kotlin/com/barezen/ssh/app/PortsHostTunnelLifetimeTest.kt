@@ -99,21 +99,21 @@ class PortsHostTunnelLifetimeTest {
         val entry = resourcesA.forwardManager.apply(spec)
         val tunnel = assertNotNull(entry.tunnel) as FakeTunnel
         waitUntil(timeoutMillis = 10_000) {
-            onAllNodesWithText("活动转发：1 条").fetchSemanticsNodes().isNotEmpty()
+            onAllNodesWithText("活动转发 1 条").fetchSemanticsNodes().isNotEmpty()
         }
 
         // 组合之后新开 B 并成为活动会话：旧 Host 会在此 closeAll A 的隧道
         m.startConnect(db01, AuthMethod.Password("x"))
         m.navigate(Destination.PORTS)
         waitUntil(timeoutMillis = 10_000) {
-            onAllNodesWithText("活动转发：0 条").fetchSemanticsNodes().isNotEmpty()
+            onAllNodesWithText("活动转发 0 条").fetchSemanticsNodes().isNotEmpty()
         }
         assertTrue(!tunnel.closed, "切到另一条会话的标签，不得关闭用户正在使用的隧道")
 
         // 切回 A：隧道仍在，且是被同一个 manager 持有的同一条 ACTIVE 条目
         m.registry.activate(idA)
         waitUntil(timeoutMillis = 10_000) {
-            onAllNodesWithText("活动转发：1 条").fetchSemanticsNodes().isNotEmpty()
+            onAllNodesWithText("活动转发 1 条").fetchSemanticsNodes().isNotEmpty()
         }
         assertTrue(!tunnel.closed, "切回标签后隧道必须仍然活着（方案 A 的唯一存在理由）")
         val back = assertNotNull(
@@ -140,7 +140,7 @@ class PortsHostTunnelLifetimeTest {
         )
         val tunnel = assertNotNull(resourcesA.forwardManager.apply(spec).tunnel) as FakeTunnel
         waitUntil(timeoutMillis = 10_000) {
-            onAllNodesWithText("活动转发：1 条").fetchSemanticsNodes().isNotEmpty()
+            onAllNodesWithText("活动转发 1 条").fetchSemanticsNodes().isNotEmpty()
         }
 
         m.registry.close(idA)

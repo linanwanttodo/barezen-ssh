@@ -1,38 +1,42 @@
-// shared/src/jvmMain/kotlin/com/barezen/ssh/ui/shell/AiPanel.kt（T-7：P6 AI 运维侧栏）
+// shared/src/jvmMain/kotlin/com/barezen/ssh/ui/shell/AiPanel.kt（T-7：P6 AI 运维侧栏，2026-10-03 移入终端屏）
 package com.barezen.ssh.ui.shell
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.automirrored.outlined.Send
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,233 +46,265 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.barezen.ssh.app.AiChatModel
 import com.barezen.ssh.app.AiKeyStore
 import com.barezen.ssh.app.AiMessage
 import com.barezen.ssh.app.AiRole
-import com.barezen.ssh.app.AiChatModel
 import com.barezen.ssh.app.extractCommands
+import com.barezen.ssh.terminal.LocalTerminalBridge
 import com.barezen.ssh.terminal.TerminalBridge
-import com.barezen.ssh.ui.screens.EmptyHint
+import com.barezen.ssh.ui.components.Btn
+import com.barezen.ssh.ui.components.BtnKind
+import com.barezen.ssh.ui.components.BzSwitch
 import com.barezen.ssh.ui.theme.BareZenMonoBody
 import com.barezen.ssh.ui.theme.BareZenMonoSmall
+import com.barezen.ssh.ui.theme.BareZenSize
+import com.barezen.ssh.ui.theme.LocalBareZenColors
 
-/** 面板尺寸约定（T-7）：展开 320dp，折叠为仅图标的 56dp rail。 */
+/** 面板尺寸（apple.css `.ai-sidebar`）：宽 320dp，与终端同底色（不另起一层）。 */
 internal val AI_PANEL_EXPANDED_WIDTH = 320.dp
-internal val AI_PANEL_RAIL_WIDTH = 56.dp
 internal const val AI_CONTEXT_MAX_LINES = 200
 
 /**
- * AI 运维侧栏（T-7）。右侧可折叠面板：
- * - 对话结构：「对话」标题 + 新建会话；消息流用户右对齐 / AI 左对齐，纯文本流式渲染；
+ * AI 运维侧栏（apple.css `.ai-sidebar`）：三段式——header（运维助手 + 收起）| body（消息流或空态）
+ * | composer（上下文/模式选择、输入框、权限档、模型名）。
+ *
+ * - 对话：用户右对齐 / AI 左对齐，消息流式渲染；
  * - 模型下拉只渲染配置里的真实值（单条目，不造假备选）；
- * - 「附带终端上下文」开关默认关；开启时发送前从 [bridge] 取滚动缓冲区快照（尾部
- *   [AI_CONTEXT_MAX_LINES] 行），消息区如实显示「已附带终端输出 N 行」；
- * - AI 回复中的候选命令（代码块/提示符行）必须经确认对话框（显示确切命令）后才能
- *   写入终端 —— [TerminalBridge.writeCommand] 是唯一写入口，无审批不注入；
- * - 未配置（endpoint/model/key 任一缺失）时输入禁用并给出引导文字；
- * - 配色黑白灰，红色仅用于错误。
+ * - 「附带终端上下文」默认关；开启时发送前从 [bridge] 取滚动缓冲区尾部 [AI_CONTEXT_MAX_LINES] 行；
+ * - AI 回复中的候选命令必须经审批对话框确认后才写入终端 —— [TerminalBridge.writeCommand]
+ *   是唯一写入口，无审批不注入；
+ * - 未配置（endpoint/model/key 任一缺失）时输入禁用并给出引导文字。
  */
 @Composable
-internal fun AiPanel(
+internal fun AiSidebar(
     chat: AiChatModel,
     keys: AiKeyStore,
-    bridge: TerminalBridge?,
-    expanded: Boolean,
-    onToggle: () -> Unit,
+    sessionName: String?,
+    onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (expanded) {
-        AiPanelExpanded(chat, keys, bridge, onToggle, modifier)
-    } else {
-        AiPanelRail(onToggle, modifier)
-    }
-}
-
-@Composable
-private fun AiPanelRail(onToggle: () -> Unit, modifier: Modifier) {
     val colors = MaterialTheme.colorScheme
-    Column(modifier.width(AI_PANEL_RAIL_WIDTH).fillMaxHeight()) {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(colors.outlineVariant))
-        IconButton(
-            onClick = onToggle,
-            modifier = Modifier
-                .padding(top = 8.dp)
-                .size(AI_PANEL_RAIL_WIDTH, 40.dp)
-                .testTag("ai-panel-toggle")
-                .semantics { contentDescription = "展开智能助手面板" },
-        ) {
-            Icon(Icons.AutoMirrored.Outlined.Chat, contentDescription = null, tint = colors.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun AiPanelExpanded(
-    chat: AiChatModel,
-    keys: AiKeyStore,
-    bridge: TerminalBridge?,
-    onToggle: () -> Unit,
-    modifier: Modifier,
-) {
-    val colors = MaterialTheme.colorScheme
+    val extras = LocalBareZenColors.current
+    // 终端桥在**组合期**取一次：onClick 是非组合闭包，不能在里面调 @Composable getter。
+    val bridge = LocalTerminalBridge.current
     var input by remember { mutableStateOf("") }
     var attachContext by remember { mutableStateOf(false) }
     var modelMenuOpen by remember { mutableStateOf(false) }
     var pendingInject by remember { mutableStateOf<String?>(null) }
     var injectError by remember { mutableStateOf<String?>(null) }
-    // 发送附注（上一条消息的上下文情况，如实展示，含「开了开关但没取到输出」）
     var lastSendNote by remember { mutableStateOf<String?>(null) }
 
     val config = chat.configProvider()
     val configured = config != null
 
-    Column(modifier.width(AI_PANEL_EXPANDED_WIDTH).fillMaxHeight().background(colors.surface)) {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(colors.outlineVariant))
-        // 头部：「对话」+ 新建会话 + 折叠
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 8.dp),
-        ) {
-            Text("对话", fontWeight = FontWeight.Medium, fontSize = 14.sp, modifier = Modifier.padding(start = 8.dp))
-            Spacer(Modifier.weight(1f))
-            IconButton(
-                onClick = { chat.newSession() },
-                modifier = Modifier
-                    .testTag("ai-new-session")
-                    .semantics { contentDescription = "新建会话" },
+    Row(
+        modifier
+            .width(AI_PANEL_EXPANDED_WIDTH)
+            .fillMaxHeight()
+            .background(extras.terminalBg),
+    ) {
+        // 与终端区之间的 1px 分隔（apple.css 靠 terminal-bg 同色，改用细线区分两块内容）
+        Box(Modifier.width(1.dp).fillMaxHeight().background(colors.outlineVariant))
+        Column(Modifier.weight(1f).fillMaxHeight()) {
+            // header
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(BareZenSize.tabHeight)
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Outlined.Add, contentDescription = null, tint = colors.onSurfaceVariant)
-            }
-            IconButton(
-                onClick = onToggle,
-                modifier = Modifier
-                    .testTag("ai-panel-toggle")
-                    .semantics { contentDescription = "收起智能助手面板" },
-            ) {
-                Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = colors.onSurfaceVariant)
-            }
-        }
-
-        // 消息流：用户右对齐 / AI 左对齐
-        Column(
-            Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            if (chat.messages.isEmpty()) {
-                EmptyHint(
-                    icon = Icons.AutoMirrored.Outlined.Chat,
-                    text = "与 AI 讨论终端里的问题。可开启「附带终端上下文」让助手看到最近输出。",
+                Box(Modifier.size(6.dp).clip(CircleShape).background(extras.accentOnSubtle))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "运维助手",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.onSurface,
+                )
+                Spacer(Modifier.weight(1f))
+                Btn(
+                    "收起",
+                    onClose,
+                    kind = com.barezen.ssh.ui.components.BtnKind.ghost,
+                    small = true,
+                    icon = Icons.Outlined.KeyboardArrowDown,
                 )
             }
-            chat.messages.forEachIndexed { index, message ->
-                AiMessageBubble(message) { command -> pendingInject = command }
-            }
-            chat.error?.let { err ->
-                Text(err, color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.testTag("ai-error"))
-            }
-            lastSendNote?.let { note ->
-                Text(note, color = colors.onSurfaceVariant, fontSize = 11.sp)
-            }
-        }
+            HorizontalLine()
 
-        // 模型下拉（单条目 = 配置里的模型名，照实渲染，不造假备选）
-        Box(Modifier.padding(horizontal = 12.dp)) {
-            Text(
-                text = config?.model?.takeIf { it.isNotBlank() } ?: "未配置模型",
-                fontSize = 12.sp,
-                color = colors.onSurfaceVariant,
-                modifier = Modifier
-                    .clickable(enabled = configured) { modelMenuOpen = true }
-                    .testTag("ai-model"),
-            )
-            DropdownMenu(expanded = modelMenuOpen, onDismissRequest = { modelMenuOpen = false }) {
-                DropdownMenuItem(
-                    text = { Text(config?.model ?: "", fontSize = 12.sp) },
-                    onClick = { modelMenuOpen = false },
-                )
-            }
-        }
-
-        // 附带终端上下文开关（默认关）
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-        ) {
-            Text("附带终端上下文", fontSize = 12.sp, color = colors.onSurfaceVariant)
-            Spacer(Modifier.weight(1f))
-            Switch(
-                checked = attachContext,
-                onCheckedChange = { attachContext = it },
-                modifier = Modifier.testTag("ai-context-switch"),
-            )
-        }
-
-        // 钥匙串降级提示（T-1 模式：降级可见）
-        if (!keys.keychainAvailable) {
-            Text(
-                "系统钥匙串不可用，API key 仅保存在内存",
-                fontSize = 11.sp,
-                color = colors.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 12.dp),
-            )
-        }
-
-        // 输入行：输入 + 发送
-        Row(
-            verticalAlignment = Alignment.Bottom,
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-        ) {
-            OutlinedTextField(
-                value = input,
-                onValueChange = { input = it },
-                placeholder = {
+            // body
+            Column(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (chat.messages.isEmpty()) {
+                    AiEmptyState()
+                }
+                chat.messages.forEach { message ->
+                    AiMessageBubble(message) { command -> pendingInject = command }
+                }
+                chat.error?.let { err ->
                     Text(
-                        if (configured) "输入问题…" else "在设置-智能助手填写 API 配置后可用",
+                        err,
+                        color = colors.error,
                         fontSize = 12.sp,
+                        modifier = Modifier.testTag("ai-error"),
                     )
-                },
-                enabled = configured && !chat.isStreaming,
-                singleLine = true,
-                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp),
-                modifier = Modifier.weight(1f).testTag("ai-input"),
-            )
-            IconButton(
-                onClick = {
-                    val text = input.trim()
-                    if (text.isEmpty()) return@IconButton
-                    val context = if (attachContext && bridge != null) {
-                        bridge.lastLines(AI_CONTEXT_MAX_LINES)
-                    } else {
-                        emptyList()
-                    }
-                    lastSendNote = when {
-                        !attachContext -> null
-                        context.isEmpty() -> "已开启附带，但当前没有可用的终端输出"
-                        else -> "已附带终端输出 " + context.size + " 行"
-                    }
-                    chat.send(text, if (attachContext) context else null)
-                    input = ""
-                },
-                enabled = configured && !chat.isStreaming && input.isNotBlank(),
-                modifier = Modifier
-                    .padding(start = 4.dp)
-                    .testTag("ai-send")
-                    .semantics { contentDescription = "发送" },
+                }
+                lastSendNote?.let { note ->
+                    Text(note, color = colors.onSurfaceVariant, fontSize = 11.sp)
+                }
+            }
+
+            // composer
+            Column(
+                Modifier.fillMaxWidth().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = null)
+                // 上下文与模式
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AiSelectButton(
+                        text = sessionName ?: "未连接会话",
+                        icon = Icons.Outlined.Tune,
+                        onClick = { modelMenuOpen = true },
+                        testTag = "ai-context-button",
+                    )
+                    Spacer(Modifier.weight(1f))
+                    AiSelectButton(
+                        text = "运维模式",
+                        icon = Icons.Outlined.AutoAwesome,
+                        onClick = { modelMenuOpen = true },
+                    )
+                }
+
+                // 输入框
+                val inputShape = RoundedCornerShape(8.dp)
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(inputShape)
+                        .background(colors.surfaceContainer)
+                        .border(1.dp, colors.outline, inputShape)
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    OutlinedTextField(
+                        value = input,
+                        onValueChange = { input = it },
+                        placeholder = {
+                            Text(
+                                if (configured) "输入运维指令或问题…" else "在设置-智能助手填写 API 配置后可用",
+                                fontSize = 13.sp,
+                                color = colors.onSurfaceVariant,
+                            )
+                        },
+                        enabled = configured && !chat.isStreaming,
+                        singleLine = true,
+                        colors = transparentFieldColors(),
+                        modifier = Modifier.weight(1f).testTag("ai-input"),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(if (configured && !chat.isStreaming && input.isNotBlank()) extras.accentOnSubtle else colors.outline)
+                            .clickable(
+                                enabled = configured && !chat.isStreaming && input.isNotBlank(),
+                            ) {
+                                val text = input.trim()
+                                if (text.isEmpty()) return@clickable
+                                val context = if (attachContext && bridge != null) {
+                                    bridge.lastLines(AI_CONTEXT_MAX_LINES)
+                                } else {
+                                    emptyList()
+                                }
+                                lastSendNote = when {
+                                    !attachContext -> null
+                                    context.isEmpty() -> "已开启附带，但当前没有可用的终端输出"
+                                    else -> "已附带终端输出 " + context.size + " 行"
+                                }
+                                chat.send(text, if (attachContext) context else null)
+                                input = ""
+                            }
+                            .testTag("ai-send")
+                            .semantics { contentDescription = "发送" },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Outlined.Send,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = if (configured && input.isNotBlank()) colors.onPrimary else colors.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                // 权限档 + 模型名
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(colors.surfaceContainerHighest)
+                            .border(1.dp, colors.outline, RoundedCornerShape(6.dp))
+                            .padding(2.dp),
+                    ) {
+                        PermChip("自动", selected = !attachContext, onClick = { attachContext = false })
+                        PermChip(
+                            "Yolo",
+                            selected = attachContext,
+                            onClick = { attachContext = true },
+                            testTag = "ai-context-switch",
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        config?.model?.takeIf { it.isNotBlank() } ?: "未配置模型",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = extras.accentOnSubtle,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = 120.dp),
+                    )
+                }
+
+                // 钥匙串降级提示（T-1 模式：降级可见）
+                if (!keys.keychainAvailable) {
+                    Text(
+                        "系统钥匙串不可用，API key 仅保存在内存",
+                        fontSize = 11.sp,
+                        color = colors.onSurfaceVariant,
+                    )
+                }
             }
         }
+    }
+
+    // 模型下拉（单条目 = 配置里的模型名，照实渲染）
+    DropdownMenu(
+        expanded = modelMenuOpen,
+        onDismissRequest = { modelMenuOpen = false },
+    ) {
+        DropdownMenuItem(
+            text = { Text(config?.model ?: "未配置模型", fontSize = 12.sp) },
+            onClick = { modelMenuOpen = false },
+        )
     }
 
     // 命令注入审批对话框：显示确切命令，确认后经 bridge 写入（无审批不注入）
@@ -280,7 +316,7 @@ private fun AiPanelExpanded(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("将在当前终端执行以下命令，请确认其来源可信：", fontSize = 13.sp)
                     Surface(
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(8.dp),
                         color = colors.surfaceContainerHighest,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
@@ -290,7 +326,9 @@ private fun AiPanelExpanded(
                             modifier = Modifier.padding(8.dp).testTag("ai-inject-command"),
                         )
                     }
-                    injectError?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
+                    injectError?.let {
+                        Text(it, color = extras.onErrorContainer, fontSize = 12.sp)
+                    }
                 }
             },
             confirmButton = {
@@ -301,20 +339,54 @@ private fun AiPanelExpanded(
                         if (ok) pendingInject = null
                     },
                     modifier = Modifier.testTag("ai-inject-confirm"),
-                ) {
-                    Text("注入")
-                }
+                ) { Text("注入") }
             },
-            dismissButton = {
-                TextButton(onClick = { pendingInject = null }) {
-                    Text("取消")
-                }
-            },
+            dismissButton = { TextButton(onClick = { pendingInject = null }) { Text("取消") } },
         )
     }
 }
 
-/** 单条消息：AI 左对齐（surfaceContainer），用户右对齐（primary 容器中性化后的黑/白灰）。 */
+/** 空态（apple.css `.ai-placeholder`）：40dp 方块 + 标题 + 一行说明。 */
+@Composable
+private fun AiEmptyState() {
+    val colors = MaterialTheme.colorScheme
+    val extras = LocalBareZenColors.current
+    Column(
+        Modifier.fillMaxWidth().padding(vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
+            Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(colors.surfaceContainerLow)
+                .border(1.dp, colors.outline, RoundedCornerShape(8.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                "AI",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = extras.accentOnSubtle,
+            )
+        }
+        Text(
+            "选择模型后开始对话",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = colors.onSurface,
+        )
+        Text(
+            "批准的命令将注入当前终端",
+            fontSize = 12.sp,
+            color = colors.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+/** 单条消息：AI 左对齐、用户右对齐；AI 完成后解析出可注入命令，逐条审批。 */
 @Composable
 private fun AiMessageBubble(message: AiMessage, onInject: (String) -> Unit) {
     val colors = MaterialTheme.colorScheme
@@ -324,7 +396,8 @@ private fun AiMessageBubble(message: AiMessage, onInject: (String) -> Unit) {
     ) {
         Surface(
             shape = RoundedCornerShape(8.dp),
-            color = if (message.role == AiRole.USER) colors.surfaceContainerHighest else colors.surfaceContainerLow,
+            color = if (message.role == AiRole.USER) colors.surfaceContainerHighest
+            else colors.surfaceContainer,
             modifier = Modifier.widthIn(max = 260.dp),
         ) {
             Text(
@@ -334,6 +407,7 @@ private fun AiMessageBubble(message: AiMessage, onInject: (String) -> Unit) {
                     else -> "（空回复）"
                 },
                 fontSize = 13.sp,
+                color = colors.onSurface,
                 textAlign = if (message.role == AiRole.USER) TextAlign.End else TextAlign.Start,
                 modifier = Modifier.padding(8.dp),
             )
@@ -345,20 +419,109 @@ private fun AiMessageBubble(message: AiMessage, onInject: (String) -> Unit) {
                 color = colors.onSurfaceVariant,
             )
         }
-        // 助手消息完成后：解析注入候选命令（每条独立审批）
         if (message.role == AiRole.ASSISTANT && !message.streaming) {
             extractCommands(message.text).forEach { command ->
                 TextButton(
                     onClick = { onInject(command) },
                     modifier = Modifier.testTag("ai-inject-candidate"),
                 ) {
-                    Text(
-                        "注入 " + command,
-                        style = BareZenMonoSmall,
-                        maxLines = 1,
-                    )
+                    Text("注入 " + command, style = BareZenMonoSmall, maxLines = 1)
                 }
             }
         }
     }
 }
+
+/** 上下文/模式选择按钮（apple.css `.ai-context-btn`）。 */
+@Composable
+private fun AiSelectButton(
+    text: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    testTag: String? = null,
+) {
+    val colors = MaterialTheme.colorScheme
+    val extras = LocalBareZenColors.current
+    val shape = RoundedCornerShape(6.dp)
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    Row(
+        Modifier
+            .height(28.dp)
+            .clip(shape)
+            .background(if (hovered) colors.surfaceContainerHighest else colors.surfaceContainer)
+            .border(1.dp, colors.outline, shape)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, null, modifier = Modifier.size(12.dp), tint = extras.accentOnSubtle)
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            color = colors.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.width(4.dp))
+        Icon(
+            Icons.Outlined.KeyboardArrowDown,
+            null,
+            modifier = Modifier.size(12.dp),
+            tint = colors.onSurfaceVariant,
+        )
+    }
+}
+
+/** 权限档（apple.css `.perm-chip`）：选中反色。[testTag] 用于测试定位。 */
+@Composable
+private fun PermChip(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    testTag: String? = null,
+) {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        Modifier
+            .height(22.dp)
+            .clip(RoundedCornerShape(4.dp))
+            .background(if (selected) colors.onSurface else androidx.compose.ui.graphics.Color.Transparent)
+            .clickable(onClick = onClick)
+            .then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
+            .padding(horizontal = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (selected) colors.surface else colors.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun HorizontalLine() {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(MaterialTheme.colorScheme.outlineVariant),
+    )
+}
+
+/** 输入框透明化：外层已画好描边与底色，内层不再重复一套框。 */
+@Composable
+private fun transparentFieldColors() = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
+    unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
+    disabledBorderColor = androidx.compose.ui.graphics.Color.Transparent,
+    focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+    unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+    disabledContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+    cursorColor = MaterialTheme.colorScheme.primary,
+)

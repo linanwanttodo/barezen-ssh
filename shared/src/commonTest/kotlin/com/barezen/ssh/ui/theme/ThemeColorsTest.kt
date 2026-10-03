@@ -11,54 +11,67 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** 断言值 = DBX tokens.css dark 段权威值（github.com/t8y2/dbx）+ 亮色板派生值。 */
+/**
+ * 断言值 = docs/ui-redesign/apple.css 的 token（2026-10-03 全盘采用）。
+ * 与 apple.css 字面值不同的四组令牌在 Color.kt 文件头有逐条对比度说明；
+ * 本测试同时锁住**改动后的值**与**它们必须达 AA**这一事实。
+ */
 class ThemeColorsTest {
-    @Test fun bgMatchesDbxTokens() = assertEquals(Color(0xFF131416), BareZenBg)
-    @Test fun surfaceMatchesDbxTokens() = assertEquals(Color(0xFF1B1B1E), BareZenSurface)
-    @Test fun panelMatchesDbxTokens() = assertEquals(Color(0xFF19191C), BareZenPanel)
-    @Test fun elevatedMatchesDbxTokens() = assertEquals(Color(0xFF232327), BareZenElevated)
-    @Test fun borderMatchesDbxTokens() = assertEquals(Color(0x476E6E72), BareZenBorder)
-    @Test fun borderSubtleMatchesDbxTokens() = assertEquals(Color(0x296E6E72), BareZenBorderSubtle)
-    @Test fun textPrimaryMatchesDbxTokens() = assertEquals(Color(0xFFF2F2F4), BareZenTextPrimary)
-    @Test fun textSecondaryMatchesDbxTokens() = assertEquals(Color(0xFF9E9EA6), BareZenTextSecondary)
-    @Test fun textTertiaryMatchesDbxTokens() = assertEquals(Color(0xFF82828A), BareZenTextTertiary)
-    @Test fun accentMatchesDbxTokens() = assertEquals(Color(0xFFD0D0D6), BareZenAccent)
-    @Test fun onAccentMatchesDbxTokens() = assertEquals(Color(0xFF1B1B1E), BareZenOnAccent)
-    @Test fun accentSubtleMatchesDbxTokens() = assertEquals(Color(0x1AFFFFFF), BareZenAccentSubtle)
-    @Test fun errorMatchesDbxTokens() = assertEquals(Color(0xFFF3625F), BareZenError)
-    @Test fun errorBgMatchesDbxTokens() = assertEquals(Color(0x26F3625F), BareZenErrorBg)
-    @Test fun warningMatchesDbxTokens() = assertEquals(Color(0xFFFBBF24), BareZenWarning)
-    @Test fun infoMatchesDbxTokens() = assertEquals(Color(0xFF60A5FA), BareZenInfo)
-    @Test fun terminalBgMatchesDbxTokens() = assertEquals(Color(0xFF1E1E1E), BareZenTerminalBg)
+    // ---- 暗色板 ----
+    @Test fun bgMatchesAppleToken() = assertEquals(Color(0xFF1C1C1E), BareZenBg)
+    @Test fun surfaceMatchesAppleToken() = assertEquals(Color(0xFF141416), BareZenSurface)
+    @Test fun surface2MatchesAppleToken() = assertEquals(Color(0xFF0E0E10), BareZenSurface2)
+    @Test fun panelMatchesAppleToken() = assertEquals(Color(0xFF242426), BareZenPanel)
+    @Test fun elevatedMatchesAppleToken() = assertEquals(Color(0xFF2C2C2E), BareZenElevated)
+    @Test fun borderMatchesAppleToken() = assertEquals(Color(0xFF38383A), BareZenBorder)
+    @Test fun borderStrongMatchesAppleToken() = assertEquals(Color(0xFF48484A), BareZenBorderStrong)
+    @Test fun borderSubtleMatchesAppleToken() = assertEquals(Color(0xFF2A2A2C), BareZenBorderSubtle)
+    @Test fun textPrimaryMatchesAppleToken() = assertEquals(Color(0xFFF5F5F7), BareZenTextPrimary)
+    @Test fun textSecondaryMatchesAppleToken() = assertEquals(Color(0xFF98989D), BareZenTextSecondary)
 
-    // 亮色板：从同一色相派生，语义色与暗色同值
-    @Test fun lightBgDerivedFromSameHue() = assertEquals(Color(0xFFF5F5F7), BareZenLightBg)
-    @Test fun lightSurfaceDerivedFromSameHue() = assertEquals(Color(0xFFFFFFFF), BareZenLightSurface)
-    @Test fun lightPanelDerivedFromSameHue() = assertEquals(Color(0xFFF9F9FA), BareZenLightPanel)
-    @Test fun lightElevatedDerivedFromSameHue() = assertEquals(Color(0xFFFFFFFF), BareZenLightElevated)
-    @Test fun lightTextPrimaryDerivedFromSameHue() = assertEquals(Color(0xFF1B1B1E), BareZenLightTextPrimary)
-    @Test fun lightTextSecondaryDerivedFromSameHue() = assertEquals(Color(0xFF6E6E76), BareZenLightTextSecondary)
-    @Test fun lightTextTertiaryDerivedFromSameHue() = assertEquals(Color(0xFF67676F), BareZenLightTextTertiary)
-    @Test fun lightAccentDerivedFromSameHue() = assertEquals(Color(0xFF3A3A40), BareZenLightAccent)
-    @Test fun lightOnAccentDerivedFromSameHue() = assertEquals(Color(0xFFFFFFFF), BareZenLightOnAccent)
-    @Test fun lightBorderKeepsDbxRgb() = assertEquals(Color(0x476E6E72), BareZenLightBorder)
-    @Test fun lightErrorBgUsesHigherAlpha() = assertEquals(Color(0x29F3625F), BareZenLightErrorBg)
-    // 亮色板 error 深浅两档：同一红色色相按明度派生（白底 AA / tint 底 AA）
-    @Test fun lightErrorDerivedFromSameHue() = assertEquals(Color(0xFFC93B38), BareZenLightError)
-    @Test fun lightOnErrorDeepDerivedFromSameHue() = assertEquals(Color(0xFF93312E), BareZenLightOnErrorDeep)
+    /**
+     * textTertiary 是**为 AA 调整过的值**（apple.css 的 #6E6E73 在 bg 上仅 3.36:1）。
+     * 把它调回更暗的灰会先在这条测试上看到。
+     */
+    @Test fun textTertiaryLiftedForWcagAa() = assertEquals(Color(0xFF94949A), BareZenTextTertiary)
 
+    @Test fun accentMatchesAppleToken() = assertEquals(Color(0xFF0A84FF), BareZenAccent)
+    /** error 族为 AA 整体提亮（同色相）：裸 error 在 elevated 上必须达 4.5。 */
+    @Test fun errorLiftedForWcagAaOnLightestSurface() = assertEquals(Color(0xFFFF7B74), BareZenError)
+    @Test fun warningMatchesAppleToken() = assertEquals(Color(0xFFFF9F0A), BareZenWarning)
+    @Test fun successMatchesAppleToken() = assertEquals(Color(0xFF30D158), BareZenSuccess)
+    @Test fun terminalBgMatchesAppleToken() = assertEquals(Color(0xFF0E0E10), BareZenTerminalBg)
+
+    /** accent 填充上的文字是**近黑而非白**：白字压 #0A84FF 只有 3.65:1，AA 不达标。 */
+    @Test fun onAccentIsNearBlackForWcagAa() = assertEquals(Color(0xFF0A0A0C), BareZenOnAccent)
+
+    /** errorContainer 上的文字比 error 再亮一档：压 14% tint 必须达 4.5（含最亮的 elevated 底）。 */
+    @Test fun onErrorContainerLiftedForWcagAa() =
+        assertEquals(Color(0xFFFF9A93), BareZenOnErrorContainer)
+
+    // ---- 亮色板 ----
+    @Test fun lightBgMatchesAppleHierarchy() = assertEquals(Color(0xFFF2F2F4), BareZenLightBg)
+    @Test fun lightSurfaceIsWhite() = assertEquals(Color(0xFFFFFFFF), BareZenLightSurface)
+    @Test fun lightElevatedMatchesAppleHierarchy() = assertEquals(Color(0xFFE8E8ED), BareZenLightElevated)
+    @Test fun lightTextPrimaryMatchesAppleToken() = assertEquals(Color(0xFF1C1C1E), BareZenLightTextPrimary)
+    @Test fun lightTextTertiaryMeetsAaOnElevated() = assertEquals(Color(0xFF67676E), BareZenLightTextTertiary)
+    @Test fun lightAccentMeetsAaAsTextAndFill() = assertEquals(Color(0xFF005FCC), BareZenLightAccent)
+    @Test fun lightErrorMeetsAaOnTint() = assertEquals(Color(0xFFBB3330), BareZenLightError)
+
+    // ---- M3 槽位映射 ----
     @Test fun schemeMapsDesignTokens() {
         val c = BareZenDarkColors
         assertEquals(BareZenAccent, c.primary)
         assertEquals(BareZenOnAccent, c.onPrimary)
-        assertEquals(BareZenAccentSubtle, c.secondaryContainer)
-        assertEquals(BareZenAccent, c.onSecondaryContainer)
+        assertEquals(BareZenAccentSubtle, c.primaryContainer)
+        assertEquals(BareZenAccentOnSubtle, c.onPrimaryContainer)
         assertEquals(BareZenError, c.error)
         assertEquals(BareZenErrorBg, c.errorContainer)
+        assertEquals(BareZenOnErrorContainer, c.onErrorContainer)
         assertEquals(BareZenBg, c.background)
         assertEquals(BareZenSurface, c.surface)
-        assertEquals(BareZenPanel, c.surfaceContainerLow)
-        assertEquals(BareZenElevated, c.surfaceContainerHigh)
+        assertEquals(BareZenPanel, c.surfaceContainer)
+        assertEquals(BareZenElevated, c.surfaceContainerHighest)
         assertEquals(BareZenTextSecondary, c.onSurfaceVariant)
         assertEquals(BareZenBorder, c.outline)
         assertEquals(BareZenBorderSubtle, c.outlineVariant)
@@ -73,59 +86,114 @@ class ThemeColorsTest {
         assertEquals(BareZenLightOnErrorDeep, c.onErrorContainer)
         assertEquals(BareZenLightBg, c.background)
         assertEquals(BareZenLightSurface, c.surface)
-        assertEquals(BareZenLightPanel, c.surfaceContainerLow)
-        assertEquals(BareZenLightElevated, c.surfaceContainerHigh)
         assertEquals(BareZenLightTextSecondary, c.onSurfaceVariant)
-        assertEquals(BareZenLightBorder, c.outline)
     }
 
-    /** DBX 控件 4px / 容器 6px。 */
-    @Test fun shapesMatchDbxRadius() {
+    /** apple.css 圆角：控件 8 / 容器 10 / 大容器 12 / 紧凑 6。 */
+    @Test fun shapesMatchAppleRadius() {
         val density = Density(1f)
         val size = Size(100f, 100f)
-        assertEquals(6f, (BareZenShapes.extraLarge as RoundedCornerShape).topStart.toPx(size, density))
-        assertEquals(6f, (BareZenShapes.large as RoundedCornerShape).topStart.toPx(size, density))
-        assertEquals(4f, (BareZenShapes.medium as RoundedCornerShape).topStart.toPx(size, density))
-        assertEquals(4f, (BareZenShapes.small as RoundedCornerShape).topStart.toPx(size, density))
+        assertEquals(12f, (BareZenShapes.extraLarge as RoundedCornerShape).topStart.toPx(size, density))
+        assertEquals(10f, (BareZenShapes.large as RoundedCornerShape).topStart.toPx(size, density))
+        assertEquals(8f, (BareZenShapes.medium as RoundedCornerShape).topStart.toPx(size, density))
+        assertEquals(6f, (BareZenShapes.small as RoundedCornerShape).topStart.toPx(size, density))
     }
 
-    /** WCAG 证据自动化：正文组合全部 >=4.5:1。半透明语义背景先合成到 surface 再计算。 */
-    @Test fun textCombinationsPassWcagAA() {
-        val cases = listOf(
-            Triple(BareZenTextPrimary, BareZenBg, 4.5),
-            Triple(BareZenTextSecondary, BareZenBg, 4.5),
-            Triple(BareZenTextTertiary, BareZenBg, 4.5),
-            Triple(BareZenAccent, BareZenBg, 4.5),
-            Triple(BareZenError, BareZenBg, 4.5),
-            Triple(BareZenWarning, BareZenBg, 4.5),
-            Triple(BareZenInfo, BareZenBg, 4.5),
-            Triple(BareZenTextSecondary, BareZenPanel, 4.5),
-            Triple(BareZenTextTertiary, BareZenPanel, 4.5),
-            Triple(BareZenAccent, BareZenPanel, 4.5),
-            Triple(BareZenOnAccent, BareZenAccent, 4.5),
-            Triple(BareZenError, composited(BareZenSurface, BareZenErrorBg), 4.5),
+    /**
+     * WCAG 证据（暗色）：**所有文字/底色组合** >= 4.5:1。
+     * 背景集合取本主题实际出现的不透明底色——bg / surface / surface-2 / panel / elevated，
+     * 前景取四级文字 + 语义色。新配色漏掉任一组合都会在这里转红。
+     */
+    @Test fun darkTextPassesWcagAaOnEverySurface() {
+        val backgrounds = listOf(BareZenBg, BareZenSurface, BareZenSurface2, BareZenPanel, BareZenElevated)
+        // 注意：这里**不含** BareZenAccent。accent 是填充/图标色，当文字用会在 panel 上
+        // 只有 4.25:1（见文件头「结构性约束」）；文字角色由 BareZenAccentOnSubtle 承担。
+        val foregrounds = listOf(
+            BareZenTextPrimary, BareZenTextSecondary, BareZenTextTertiary,
+            BareZenError, BareZenWarning, BareZenSuccess, BareZenAccentOnSubtle,
         )
-        cases.forEach { (fg, bg, min) ->
-            assertTrue(contrastRatio(fg, bg) >= min, "$fg on $bg = ${contrastRatio(fg, bg)} < $min")
+        for (bg in backgrounds) {
+            for (fg in foregrounds) {
+                val ratio = contrastRatio(fg, bg)
+                assertTrue(ratio >= 4.5, "$fg on $bg = $ratio < 4.5")
+            }
         }
     }
 
-    /** 亮色板 AA：文本三级与主/次在亮背景上的证据。 */
-    @Test fun lightTextCombinationsPassWcagAA() {
+    /** 文字压在半透明 tint 上：先把 tint 合成到实际底色再算。 */
+    @Test fun darkTextPassesWcagAaOnTintedBackgrounds() {
         val cases = listOf(
-            Triple(BareZenLightTextPrimary, BareZenLightBg, 4.5),
-            Triple(BareZenLightTextSecondary, BareZenLightBg, 4.5),
-            Triple(BareZenLightTextTertiary, BareZenLightBg, 4.5),
-            Triple(BareZenLightTextTertiary, BareZenLightPanel, 4.5),
-            Triple(BareZenLightAccent, BareZenLightBg, 4.5),
-            Triple(BareZenLightOnAccent, BareZenLightAccent, 4.5),
-            Triple(BareZenLightError, BareZenLightSurface, 4.5),
-            Triple(BareZenLightError, BareZenLightBg, 4.5),
-            Triple(BareZenLightOnErrorDeep, composited(BareZenLightSurface, BareZenLightErrorBg), 4.5),
-            Triple(BareZenLightOnAccent, BareZenLightAccent, 4.5),
+            // errorContainer 里的文字在**每一个**可能承载它的底色上都要达 AA
+            Triple(
+                BareZenOnErrorContainer,
+                composited(BareZenBg, BareZenErrorBg),
+                "onErrorContainer on errorBg over bg",
+            ),
+            Triple(
+                BareZenOnErrorContainer,
+                composited(BareZenPanel, BareZenErrorBg),
+                "onErrorContainer on errorBg over panel",
+            ),
+            Triple(
+                BareZenOnErrorContainer,
+                composited(BareZenElevated, BareZenErrorBg),
+                "onErrorContainer on errorBg over elevated",
+            ),
+            Triple(BareZenOnAccent, BareZenAccent, "onPrimary on accent fill"),
+            Triple(
+                BareZenAccentOnSubtle,
+                composited(BareZenBg, BareZenAccentSubtle),
+                "accentOnSubtle on primaryContainer",
+            ),
+            Triple(
+                BareZenAccentOnSubtle,
+                composited(BareZenPanel, BareZenAccentSubtle),
+                "accentOnSubtle on panel tint",
+            ),
         )
-        cases.forEach { (fg, bg, min) ->
-            assertTrue(contrastRatio(fg, bg) >= min, "$fg on $bg = ${contrastRatio(fg, bg)} < $min")
+        for ((fg, bg, label) in cases) {
+            val ratio = contrastRatio(fg, bg)
+            assertTrue(ratio >= 4.5, "$label = $ratio < 4.5")
+        }
+    }
+
+    /** 亮色板 AA：四级文字 + 语义色在白 / bg / elevated 三个底上。 */
+    @Test fun lightTextPassesWcagAaOnEverySurface() {
+        val backgrounds = listOf(BareZenLightBg, BareZenLightSurface, BareZenLightElevated)
+        val foregrounds = listOf(
+            BareZenLightTextPrimary, BareZenLightTextSecondary, BareZenLightTextTertiary,
+            BareZenLightAccent, BareZenLightError, BareZenLightWarning, BareZenLightSuccess,
+        )
+        for (bg in backgrounds) {
+            for (fg in foregrounds) {
+                val ratio = contrastRatio(fg, bg)
+                assertTrue(ratio >= 4.5, "$fg on $bg = $ratio < 4.5")
+            }
+        }
+        assertTrue(
+            contrastRatio(
+                BareZenLightOnErrorDeep,
+                composited(BareZenLightSurface, BareZenLightErrorBg),
+            ) >= 4.5,
+            "onErrorContainer on light errorBg",
+        )
+        assertTrue(
+            contrastRatio(BareZenLightOnAccent, BareZenLightAccent) >= 4.5,
+            "onPrimary on light accent fill",
+        )
+    }
+
+    /**
+     * 仪表盘数据系列：作为 3dp 色条 / 8dp 图例点等**非文本 UI 构件**，
+     * 适用 3:1 门槛（WCAG 1.4.11）。四色在 panel 底上均达标。
+     */
+    @Test fun metricAccentsPassNonTextContrast() {
+        val series = listOf(
+            BareZenMetricCpu, BareZenMetricMem, BareZenMetricLoad, BareZenMetricUptime,
+        )
+        for (c in series) {
+            val onPanel = contrastRatio(c, BareZenPanel)
+            assertTrue(onPanel >= 3.0, "metric $c on panel = $onPanel < 3.0")
         }
     }
 

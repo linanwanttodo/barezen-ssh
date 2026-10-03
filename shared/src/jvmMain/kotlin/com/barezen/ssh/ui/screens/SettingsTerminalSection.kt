@@ -20,6 +20,7 @@ fun TerminalSettingsSection(settings: SettingsModel) {
     val s = settings.settings
 
     SettingsSectionScaffold("终端") {
+      SettingCard {
         StaticValueRow(
             title = "终端字体",
             desc = "随包分发，暂无可选项",
@@ -44,5 +45,6 @@ fun TerminalSettingsSection(settings: SettingsModel) {
             checked = s.sudoAutofill,
             onCheckedChange = { v -> settings.update { it.copy(sudoAutofill = v) } },
         )
+      }
     }
 }

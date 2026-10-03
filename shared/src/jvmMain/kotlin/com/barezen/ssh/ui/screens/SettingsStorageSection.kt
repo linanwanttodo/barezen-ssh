@@ -25,6 +25,7 @@ import com.barezen.ssh.servers.Server
 import com.barezen.ssh.settings.ConnectionTransfer
 import com.barezen.ssh.settings.OpenSshConfigParser
 import com.barezen.ssh.settings.SkipReason
+import com.barezen.ssh.ui.theme.BareZenSpace
 import java.io.File
 import javax.swing.JFileChooser
 
@@ -95,6 +96,7 @@ fun StorageSettingsSection(
     val clipboard = LocalClipboardManager.current
 
     SettingsSectionScaffold("存储") {
+      SettingCard {
         ActionRow(
             title = "导出连接",
             desc = null,
@@ -125,32 +127,27 @@ fun StorageSettingsSection(
                 },
             ),
         )
-        Row(
-            Modifier.fillMaxWidth().padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ColumnHelper(
-                title = "数据目录",
-                desc = dataDir.absolutePath,
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(onClick = {
+        ActionRow(
+            title = "数据目录",
+            desc = dataDir.absolutePath,
+            actions = listOf("打开目录" to {
                 try {
                     java.awt.Desktop.getDesktop().open(dataDir)
                 } catch (_: Exception) {
                     clipboard.setText(AnnotatedString(dataDir.absolutePath))
                     resultMessage = "无法打开目录，路径已复制到剪贴板"
                 }
-            }) { Text("打开目录", fontSize = 12.sp) }
-        }
+            }),
+        )
         resultMessage?.let {
             Text(
                 it,
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp),
+                modifier = Modifier.padding(vertical = BareZenSpace.md),
             )
         }
+      }
     }
 
     // 导出确认对话框：复选框默认不勾（安全优先，逐次确认）
@@ -196,12 +193,3 @@ private fun buildReasonCounts(skipped: List<SkipReason>): String =
         }
         "$n 台$label"
     }
-
-/** 两行文本（标题 + 描述）的轻量列，供数据目录行使用。 */
-@Composable
-private fun ColumnHelper(title: String, desc: String, modifier: Modifier = Modifier) {
-    androidx.compose.foundation.layout.Column(modifier) {
-        Text(title, fontSize = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
-        Text(desc, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}

@@ -80,14 +80,17 @@ class PortsScreenTest {
     fun disconnectedFormDisabledWithHint() = runComposeUiTest {
         val store = InMemoryForwardRuleStore()
         setContent { BareZenTheme { PortsScreen(testModel(store)) } }
-        onNodeWithText("端口转发").assertIsDisplayed()
+        // 屏名由壳层标题栏承担，本屏只呈现副标题
+        onNodeWithText("通过 SSH 隧道转发本地或远程端口").assertIsDisplayed()
         onNodeWithText("连接后可启用转发").assertIsDisplayed()
-        onNodeWithText("添加").assertIsNotEnabled()
+        onNodeWithText("保存规则").assertIsNotEnabled()
         onNodeWithTag("ports-bind-port").assertIsNotEnabled()
         onNodeWithTag("ports-target-host").assertIsNotEnabled()
         onNodeWithTag("ports-target-port").assertIsNotEnabled()
         // 空规则列表如实展示
         onNodeWithText("暂无转发规则。添加后规则会保存在本机，下次连接可直接启用。").assertIsDisplayed()
+        // 活动转发卡同样如实空态
+        onNodeWithText("当前没有正在运行的转发。").assertIsDisplayed()
         assertEquals(0, store.list().size)
     }
 
@@ -100,7 +103,7 @@ class PortsScreenTest {
         onNodeWithTag("ports-bind-port").performTextInput("0")
         onNodeWithTag("ports-target-host").performTextInput("db.internal")
         onNodeWithTag("ports-target-port").performTextInput("5432")
-        onNodeWithText("添加").performClick()
+        onNodeWithText("保存规则").performClick()
         onNodeWithTag("ports-form-error").assertIsDisplayed()
         onNodeWithText("监听端口需为 1-65535 的数字").assertIsDisplayed()
         assertEquals(0, store.list().size)
@@ -113,7 +116,7 @@ class PortsScreenTest {
         onNodeWithTag("ports-bind-port").performTextInput("70000")
         onNodeWithTag("ports-target-host").performTextInput("db.internal")
         onNodeWithTag("ports-target-port").performTextInput("5432")
-        onNodeWithText("添加").performClick()
+        onNodeWithText("保存规则").performClick()
         onNodeWithTag("ports-form-error").assertIsDisplayed()
         assertEquals(0, store.list().size)
     }
@@ -125,7 +128,7 @@ class PortsScreenTest {
         onNodeWithTag("ports-bind-port").performTextInput("18081")
         onNodeWithTag("ports-target-host").performTextInput("   ")
         onNodeWithTag("ports-target-port").performTextInput("5432")
-        onNodeWithText("添加").performClick()
+        onNodeWithText("保存规则").performClick()
         onNodeWithText("目标主机不能为空").assertIsDisplayed()
         assertEquals(0, store.list().size)
     }
@@ -137,7 +140,7 @@ class PortsScreenTest {
         onNodeWithTag("ports-bind-port").performTextInput("18081")
         onNodeWithTag("ports-target-host").performTextInput("db.internal")
         onNodeWithTag("ports-target-port").performTextInput("abc")
-        onNodeWithText("添加").performClick()
+        onNodeWithText("保存规则").performClick()
         onNodeWithText("目标端口需为 1-65535 的数字").assertIsDisplayed()
         assertEquals(0, store.list().size)
     }
@@ -152,9 +155,9 @@ class PortsScreenTest {
         onNodeWithTag("ports-bind-port").performTextInput("18081")
         onNodeWithTag("ports-target-host").performTextInput("db.internal")
         onNodeWithTag("ports-target-port").performTextInput("5432")
-        onNodeWithText("添加").performClick()
+        onNodeWithText("保存规则").performClick()
         // 列表出现规则行
-        onNodeWithText("本地 18081 -> db.internal:5432").assertIsDisplayed()
+        assertTrue(onAllNodesWithText("localhost:18081 -> db.internal:5432").fetchSemanticsNodes().isNotEmpty())
         onNodeWithText("已启用").assertIsDisplayed()
         // 已持久化且隧道激活
         assertEquals(1, store.list().size)
@@ -167,20 +170,20 @@ class PortsScreenTest {
     fun remoteKindSelectableAndPersisted() = runComposeUiTest {
         val store = InMemoryForwardRuleStore()
         setContent { BareZenTheme { PortsScreen(testModel(store, fakeManagerFlow())) } }
-        onNodeWithText("远程").performClick()
+        onNodeWithText("服务器监听").performClick()
         onNodeWithTag("ports-bind-port").performTextInput("18082")
         onNodeWithTag("ports-target-host").performTextInput("web.local")
         onNodeWithTag("ports-target-port").performTextInput("80")
-        onNodeWithText("添加").performClick()
-        onNodeWithText("远程 18082 -> web.local:80").assertIsDisplayed()
+        onNodeWithText("保存规则").performClick()
+        assertTrue(onAllNodesWithText("0.0.0.0:18082 -> web.local:80").fetchSemanticsNodes().isNotEmpty())
         assertEquals(ForwardKind.REMOTE, store.list().single().kind)
     }
 
     @Test
     fun dynamicKindDisabledWithUpcomingNote() = runComposeUiTest {
         setContent { BareZenTheme { PortsScreen(testModel()) } }
-        onNodeWithText("动态").assertIsDisplayed()
-        onNodeWithText("动态").assertIsNotEnabled()
+        onNodeWithText("SOCKS5").assertIsDisplayed()
+        onNodeWithText("SOCKS5").assertIsNotEnabled()
         onNodeWithText("动态（SOCKS5）即将支持", substring = true).assertIsDisplayed()
     }
 
@@ -195,9 +198,9 @@ class PortsScreenTest {
             managerFlow.value.apply(rule.toSpec()).tunnel as FakeForwardTunnel
         }
         setContent { BareZenTheme { PortsScreen(testModel(store, managerFlow)) } }
-        onNodeWithText("本地 18081 -> db.internal:5432").assertIsDisplayed()
+        assertTrue(onAllNodesWithText("localhost:18081 -> db.internal:5432").fetchSemanticsNodes().isNotEmpty())
         onNodeWithText("删除").performClick()
-        assertTrue(onAllNodesWithText("本地 18081 -> db.internal:5432").fetchSemanticsNodes().isEmpty())
+        assertTrue(onAllNodesWithText("localhost:18081 -> db.internal:5432").fetchSemanticsNodes().isEmpty())
         assertEquals(0, store.list().size)
         assertEquals(0, managerFlow.value.entries.value.size)
         assertTrue(tunnel.closed)
@@ -213,7 +216,7 @@ class PortsScreenTest {
         onNodeWithTag("ports-bind-port").performTextInput("18099")
         onNodeWithTag("ports-target-host").performTextInput("db.internal")
         onNodeWithTag("ports-target-port").performTextInput("5432")
-        onNodeWithText("添加").performClick()
+        onNodeWithText("保存规则").performClick()
         onNodeWithText("失败：端口被占用").assertIsDisplayed()
     }
 }

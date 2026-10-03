@@ -23,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -37,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.barezen.ssh.servers.ForwardRule
@@ -47,6 +49,20 @@ import com.barezen.ssh.ssh.ForwardSpec
 import com.barezen.ssh.ssh.forward.ForwardEntry
 import com.barezen.ssh.ssh.forward.ForwardEntryState
 import com.barezen.ssh.ssh.forward.ForwardManager
+import com.barezen.ssh.ui.components.Badge
+import com.barezen.ssh.ui.components.BadgeTone
+import com.barezen.ssh.ui.components.Banner
+import com.barezen.ssh.ui.components.Btn
+import com.barezen.ssh.ui.components.BtnKind
+import com.barezen.ssh.ui.components.BzCard
+import com.barezen.ssh.ui.components.BzSwitch
+import com.barezen.ssh.ui.components.Muted
+import com.barezen.ssh.ui.components.SectionTitle
+import com.barezen.ssh.ui.components.SegmentedControl
+import com.barezen.ssh.ui.components.StatusDot
+import com.barezen.ssh.ui.theme.BareZenMonoBody
+import com.barezen.ssh.ui.theme.BareZenSpace
+import com.barezen.ssh.ui.theme.LocalBareZenColors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -124,7 +140,37 @@ class PortsModel(
 }
 
 /**
- * 端口转发屏：规则列表（状态徽标 + 删除 + 自动启用开关）+ 新建转发表单。
+ * 端口转发页接线：只**订阅**活动会话的 [ForwardManager] 并驱动自动启用，不创建也不释放它。
+ *
+ * 隧道所有权在**会话**（[com.barezen.ssh.app.JvmSessionResources]，设计 §3.4 方案 A）而不是 Host：
+ * Host 随标签切换重新组合，若由 Host 持有 manager，用户切走标签就会把正在使用的隧道一起关掉。
+ * 释放统一由 `SessionRegistry` 在关闭标签/断开时执行（「关闭即释放、不保活」）。
+ *
+ * managerFlow 仍是 StateFlow：会话尚未连上时为 null，PortsScreen 据此呈现禁用态。
+ */
+@Composable
+fun PortsHost(model: com.barezen.ssh.app.AppModel) {
+    val active = model.registry.active
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+    // 资源没变就不重建 flow：切走再切回拿到的是同一个 JvmSessionResources 实例，
+    // 故 liveEntries（flatMapLatest）不会因切换而重新订阅、活动转发列表不丢。
+    val resources = active?.resources as? com.barezen.ssh.app.JvmSessionResources
+    val managerFlow = remember(resources) {
+        MutableStateFlow<ForwardManager?>(resources?.forwardManager)
+    }
+
+    // 自动启用只在**会话首次**进入活动态时执行一次（JvmSessionResources 自己记账）：
+    // 该会话已被用户手动关掉的转发，不得因切回标签而被重新打开。
+    androidx.compose.runtime.LaunchedEffect(resources) {
+        resources?.ensureAutoStartApplied { FileForwardRuleStore().list().filter { it.autoStart } }
+    }
+    PortsScreen(model = PortsModel(scope = scope, managerFlow = managerFlow))
+}
+/**
+ * 端口转发屏（apple.html `#forwards`）：屏头（副标题 + 活动计数）| 信息横幅 |
+ * 新建表单卡（类型 tab + 三列字段 + 底部服务器/保存）| 已保存规则卡 | 活动转发卡。
+ *
  * 未连接（[PortsModel.managerFlow] 为 null）时表单整体禁用并提示「连接后可启用转发」。
  */
 @Composable
@@ -142,16 +188,27 @@ fun PortsScreen(model: PortsModel = PortsModel(scope = rememberCoroutineScope())
     var autoStart by remember { mutableStateOf(true) }
 
     Column(Modifier.fillMaxSize()) {
-        // 屏头（通用式样：56dp、horizontal 24）
+        // 屏头（apple.css `.screen-header`）
         Row(
-            Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 24.dp),
+            Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = BareZenSpace.xxxl,
+                    end = BareZenSpace.xxl,
+                    top = BareZenSpace.xl,
+                    bottom = BareZenSpace.lg,
+                ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("端口转发", style = MaterialTheme.typography.titleLarge)
+            Text(
+                "通过 SSH 隧道转发本地或远程端口",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.weight(1f))
             Text(
-                "活动转发：${liveEntries.count { it.state == ForwardEntryState.ACTIVE }} 条",
-                fontSize = 13.sp,
+                "活动转发 ${liveEntries.count { it.state == ForwardEntryState.ACTIVE }} 条",
+                fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -160,167 +217,138 @@ fun PortsScreen(model: PortsModel = PortsModel(scope = rememberCoroutineScope())
             Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = BareZenSpace.xxxl)
+                .padding(bottom = BareZenSpace.xxxl),
+            verticalArrangement = Arrangement.spacedBy(BareZenSpace.lg),
         ) {
-            // 信息横幅
-            Surface(
+            Banner(
+                text = if (connected) {
+                    "已连接。新增转发会立即启用，规则保存在本机。"
+                } else {
+                    "未连接。连接后可启用转发，转发规则将保存在本机。"
+                },
+                tone = BadgeTone.accent,
+                icon = Icons.Outlined.Info,
                 modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                shape = RoundedCornerShape(6.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-            ) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        Icons.Outlined.Info,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            // 新建转发表单（apple.css `.pf-form`）
+            BzCard(modifier = Modifier.fillMaxWidth()) {
+                // 类型 tab（apple.css `.pf-tabs`）：动态 SOCKS5 底层不支持，禁用并标注
+                SegmentedControl(
+                    options = listOf("本地监听", "服务器监听", "SOCKS5"),
+                    selectedIndex = when (kind) {
+                        ForwardKind.LOCAL -> 0
+                        ForwardKind.REMOTE -> 1
+                    },
+                    disabledIndices = setOf(2),
+                    onSelect = { i ->
+                        kind = when (i) {
+                            1 -> ForwardKind.REMOTE
+                            else -> ForwardKind.LOCAL
+                        }
+                    },
+                )
+                Spacer(Modifier.height(4.dp))
+                Muted("本地监听：本机监听；服务器监听：远端监听。动态（SOCKS5）即将支持", size = 11)
+                Spacer(Modifier.height(BareZenSpace.lg))
+
+                // 三列字段（apple.css `.pf-fields`）
+                Row(horizontalArrangement = Arrangement.spacedBy(BareZenSpace.md)) {
+                    PortField(
+                        "本地端口",
+                        bindPortText,
+                        { bindPortText = it },
+                        connected,
+                        "ports-bind-port",
+                        Modifier.weight(1f),
+                    )
+                    PortField(
+                        "远程主机",
+                        targetHost,
+                        { targetHost = it },
+                        connected,
+                        "ports-target-host",
+                        Modifier.weight(1f),
+                    )
+                    PortField(
+                        "远程端口",
+                        targetPortText,
+                        { targetPortText = it },
+                        connected,
+                        "ports-target-port",
+                        Modifier.weight(1f),
+                    )
+                }
+
+                if (!connected) {
+                    Spacer(Modifier.height(BareZenSpace.md))
+                    Muted("连接后可启用转发", size = 12)
+                }
+                if (formError != null) {
+                    Spacer(Modifier.height(BareZenSpace.md))
+                    Text(
+                        formError!!,
+                        fontSize = 12.sp,
+                        color = LocalBareZenColors.current.onErrorContainer,
+                        modifier = Modifier.testTag("ports-form-error"),
+                    )
+                }
+
+                // 底部（apple.css `.pf-form-footer`）
+                Spacer(Modifier.height(BareZenSpace.lg))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Muted(if (connected) "选择服务器：当前活动会话" else "选择服务器：未连接", size = 12)
+                    Spacer(Modifier.weight(1f))
+                    BzSwitch(
+                        checked = autoStart,
+                        onCheckedChange = { autoStart = it },
+                        enabled = connected,
                     )
                     Spacer(Modifier.width(8.dp))
-                    Text(
-                        if (connected) {
-                            "已连接。新增转发会立即启用，规则保存在本机。"
-                        } else {
-                            "未连接。连接后可启用转发，转发规则将保存在本机。"
-                        },
-                        fontSize = 13.sp,
-                    )
-                }
-            }
-
-            // 新建转发表单
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(8.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-            ) {
-                Column(
-                    Modifier.fillMaxWidth().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text(
-                        "新建转发",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    // 类型选择：动态（SOCKS5）sshj 0.40 不支持，禁用并如实标注
-                    ChoiceRow(
-                        title = "类型",
-                        desc = "本地：本机监听；远程：服务器监听。动态（SOCKS5）即将支持",
-                        options = listOf("本地", "远程", "动态"),
-                        selectedIndex = when (kind) {
-                            ForwardKind.LOCAL -> 0
-                            ForwardKind.REMOTE -> 1
-                        },
-                        disabledIndices = setOf(2),
-                        onSelect = { index ->
-                            kind = when (index) {
-                                1 -> ForwardKind.REMOTE
-                                else -> ForwardKind.LOCAL
-                            }
-                        },
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedTextField(
-                            value = bindPortText,
-                            onValueChange = { bindPortText = it },
-                            label = { Text("监听端口") },
-                            enabled = connected,
-                            singleLine = true,
-                            modifier = Modifier.weight(1f).testTag("ports-bind-port"),
-                        )
-                        OutlinedTextField(
-                            value = targetPortText,
-                            onValueChange = { targetPortText = it },
-                            label = { Text("目标端口") },
-                            enabled = connected,
-                            singleLine = true,
-                            modifier = Modifier.weight(1f).testTag("ports-target-port"),
-                        )
-                    }
-                    OutlinedTextField(
-                        value = targetHost,
-                        onValueChange = { targetHost = it },
-                        label = { Text("目标主机") },
+                    Muted("连接时自动启用", size = 12)
+                    Spacer(Modifier.width(BareZenSpace.lg))
+                    Btn(
+                        "保存规则",
+                        { model.submit(kind, bindPortText, targetHost, targetPortText) },
+                        kind = BtnKind.primary,
+                        small = true,
                         enabled = connected,
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth().testTag("ports-target-host"),
                     )
-                    if (!connected) {
-                        Text(
-                            "连接后可启用转发",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    val currentError = formError
-                    if (currentError != null) {
-                        Text(
-                            currentError,
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.testTag("ports-form-error"),
-                        )
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Button(
-                            onClick = {
-                                model.submit(kind, bindPortText, targetHost, targetPortText)
-                            },
-                            enabled = connected,
-                        ) {
-                            Text("添加")
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Switch(
-                            checked = autoStart,
-                            onCheckedChange = { autoStart = it },
-                            enabled = connected,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "连接时自动启用",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                }
+            }
+
+            // 已保存规则
+            BzCard(modifier = Modifier.fillMaxWidth()) {
+                SectionTitle("已保存的规则")
+                Spacer(Modifier.height(BareZenSpace.md))
+                if (rules.isEmpty()) {
+                    EmptyHint(Icons.Outlined.SwapHoriz, "暂无转发规则。添加后规则会保存在本机，下次连接可直接启用。")
+                } else {
+                    rules.forEach { rule ->
+                        ForwardRuleRow(
+                            rule = rule,
+                            live = liveEntries.firstOrNull { it.spec == rule.toSpec() },
+                            onDelete = { model.delete(rule) },
+                            onAutoStartChange = { model.setAutoStart(rule, it) },
                         )
                     }
                 }
             }
 
-            // 已保存规则列表
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(8.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-            ) {
-                Column(
-                    Modifier.fillMaxWidth().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        "转发规则",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    if (rules.isEmpty()) {
-                        EmptyHint(Icons.Outlined.SwapHoriz, "暂无转发规则。添加后规则会保存在本机，下次连接可直接启用。")
-                    } else {
-                        rules.forEach { rule ->
-                            ForwardRuleRow(
-                                rule = rule,
-                                live = liveEntries.firstOrNull { it.spec == rule.toSpec() },
-                                onDelete = { model.delete(rule) },
-                                onAutoStartChange = { model.setAutoStart(rule, it) },
-                            )
-                        }
+            // 活动转发
+            BzCard(modifier = Modifier.fillMaxWidth()) {
+                SectionTitle("活动转发")
+                Spacer(Modifier.height(BareZenSpace.md))
+                val active = liveEntries.filter { it.state == ForwardEntryState.ACTIVE }
+                if (active.isEmpty()) {
+                    EmptyHint(Icons.Outlined.SwapHoriz, "当前没有正在运行的转发。")
+                } else {
+                    active.forEach { entry ->
+                        LiveForwardRow(
+                            entry = entry,
+                            onStop = { model.managerFlow.value?.remove(entry) },
+                        )
                     }
                 }
             }
@@ -328,6 +356,44 @@ fun PortsScreen(model: PortsModel = PortsModel(scope = rememberCoroutineScope())
     }
 }
 
+/** 表单字段（apple.css `.pf-field`）：标签在上、输入框在下。 */
+@Composable
+private fun PortField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    enabled: Boolean,
+    testTag: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier) {
+        Text(
+            label,
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(BareZenSpace.sm))
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            enabled = enabled,
+            singleLine = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(32.dp)
+                .testTag(testTag),
+            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                focusedBorderColor = LocalBareZenColors.current.accentOnSubtle,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+            ),
+        )
+    }
+}
+
+/** 已保存规则行（apple.css `.pf-rule`）：类型徽标 + 等宽描述 + 自动启用开关 + 删除。 */
 @Composable
 private fun ForwardRuleRow(
     rule: ForwardRule,
@@ -335,61 +401,86 @@ private fun ForwardRuleRow(
     onDelete: () -> Unit,
     onAutoStartChange: (Boolean) -> Unit,
 ) {
+    val colors = MaterialTheme.colorScheme
+    val failed = live?.state == ForwardEntryState.FAILED
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
+            .testTag("ports-rule-row"),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = when (rule.kind) {
-                    ForwardKind.LOCAL -> "本地 ${rule.bindPort} -> ${rule.targetHost}:${rule.targetPort}"
-                    ForwardKind.REMOTE -> "远程 ${rule.bindPort} -> ${rule.targetHost}:${rule.targetPort}"
-                },
-                fontSize = 14.sp,
-            )
-            Text(
-                text = when {
-                    live?.state == ForwardEntryState.FAILED ->
-                        "失败：${live.message ?: "原因不明"}"
-                    else ->
-                        if (rule.autoStart) "连接时自动启用" else "不自动启用"
-                },
-                fontSize = 12.sp,
-                color = if (live?.state == ForwardEntryState.FAILED) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            )
-        }
-        Spacer(Modifier.width(8.dp))
-        StatusBadge(live = live)
-        Spacer(Modifier.width(8.dp))
-        androidx.compose.material3.Switch(
-            checked = rule.autoStart,
-            onCheckedChange = onAutoStartChange,
+        Badge(
+            when (rule.kind) {
+                ForwardKind.LOCAL -> "本地"
+                ForwardKind.REMOTE -> "服务器"
+            },
+            tone = BadgeTone.neutral,
         )
-        Spacer(Modifier.width(8.dp))
-        OutlinedButton(onClick = onDelete) { Text("删除", fontSize = 12.sp) }
+        Spacer(Modifier.width(BareZenSpace.md))
+        Text(
+            text = when (rule.kind) {
+                ForwardKind.LOCAL -> "localhost:${rule.bindPort} -> ${rule.targetHost}:${rule.targetPort}"
+                ForwardKind.REMOTE -> "0.0.0.0:${rule.bindPort} -> ${rule.targetHost}:${rule.targetPort}"
+            },
+            modifier = Modifier.weight(1f),
+            style = BareZenMonoBody,
+            color = colors.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.width(BareZenSpace.md))
+        // 运行态徽标：颜色之外必有文字（色彩不作唯一指示）
+        when {
+            failed -> Badge("失败", tone = BadgeTone.error)
+            live != null && live.state == ForwardEntryState.ACTIVE -> Badge("已启用", tone = BadgeTone.success)
+            else -> Badge("未启用", tone = BadgeTone.neutral)
+        }
+        if (failed) {
+            Spacer(Modifier.width(BareZenSpace.sm))
+            Muted("失败：${live.message ?: "原因不明"}", size = 11)
+        }
+        Spacer(Modifier.width(BareZenSpace.sm))
+        BzSwitch(checked = rule.autoStart, onCheckedChange = onAutoStartChange)
+        Spacer(Modifier.width(BareZenSpace.sm))
+        Btn("删除", onDelete, kind = BtnKind.ghost, small = true)
     }
 }
 
+/** 活动转发行（apple.css `.pf-rule.active`）：accent 描边 + 已运行时长 + 停止。 */
 @Composable
-private fun StatusBadge(live: ForwardEntry?) {
-    val (label, container, content) = when {
-        live == null -> Triple("未启用", MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurfaceVariant)
-        live.state == ForwardEntryState.ACTIVE -> Triple(
-            "已启用",
-            MaterialTheme.colorScheme.secondaryContainer,
-            MaterialTheme.colorScheme.onSecondaryContainer,
-        )
-        else -> Triple("失败", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
-    }
-    Surface(
-        color = container,
-        contentColor = content,
-        shape = RoundedCornerShape(4.dp),
+private fun LiveForwardRow(entry: ForwardEntry, onStop: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val extras = LocalBareZenColors.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+        Badge(
+            when (entry.spec.kind) {
+                ForwardKind.LOCAL -> "本地"
+                ForwardKind.REMOTE -> "服务器"
+            },
+            tone = BadgeTone.accent,
+        )
+        Spacer(Modifier.width(BareZenSpace.md))
+        Text(
+            text = when (entry.spec.kind) {
+                ForwardKind.LOCAL ->
+                    "localhost:${entry.spec.bindPort} -> ${entry.spec.targetHost}:${entry.spec.targetPort}"
+                ForwardKind.REMOTE ->
+                    "0.0.0.0:${entry.spec.bindPort} -> ${entry.spec.targetHost}:${entry.spec.targetPort}"
+            },
+            modifier = Modifier.weight(1f),
+            style = BareZenMonoBody,
+            color = colors.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        StatusDot(on = true)
+        Spacer(Modifier.width(BareZenSpace.sm))
+        Btn("停止", onStop, kind = BtnKind.danger, small = true)
     }
 }

@@ -1,8 +1,10 @@
 // shared/src/jvmMain/kotlin/com/barezen/ssh/ui/screens/FilesScreen.kt
 package com.barezen.ssh.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -20,17 +22,22 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
+import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.InsertDriveFile
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -40,13 +47,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.testTag
 import com.barezen.ssh.ssh.SftpEntry
 import com.barezen.ssh.ssh.sftp.FileSizeFormatter
 import com.barezen.ssh.ssh.sftp.SftpModel
@@ -55,7 +62,12 @@ import com.barezen.ssh.ssh.sftp.RemoteNameValidator
 import com.barezen.ssh.ssh.sftp.TransferKind
 import com.barezen.ssh.ssh.sftp.TransferStatus
 import com.barezen.ssh.ssh.sftp.TransferTask
+import com.barezen.ssh.ui.components.Btn
+import com.barezen.ssh.ui.components.BtnKind
 import com.barezen.ssh.ui.theme.BareZenMonoBody
+import com.barezen.ssh.ui.theme.BareZenSpace
+import com.barezen.ssh.ui.theme.BareZenSize
+import com.barezen.ssh.ui.theme.LocalBareZenColors
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -64,7 +76,7 @@ import javax.swing.JFileChooser
 import kotlin.math.roundToInt
 
 /** 修改时间列的显示格式。 */
-private val mtimeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+private val mtimeFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
 /** 删除确认框的 testTag（文案含变量，用标签定位避免多节点歧义）。 */
 const val FILE_DELETE_DIALOG_TAG = "file-delete-dialog"
@@ -86,12 +98,14 @@ const val FILE_DELETE_PREFIX = "file-delete-"
 const val FILE_RENAME_PREFIX = "file-rename-"
 
 /**
- * 文件管理屏：路径栏 + 文件列表 + 底部传输进度区。
+ * 文件管理屏（apple.html `#files`）：屏头（副标题 + 上传/下载）| 双栏 pane（本地/远程）
+ * | 底部 44dp 传输队列条。
+ *
+ * 本屏当前只接远程 SFTP 一侧（`SftpModel` 只有一个 cwd），故布局上呈现为
+ * 「远程 pane 满宽 + 左侧本地 pane 显示可传输路径」，不做两栏各自独立的浏览态——
+ * 那是尚未接入的能力，不做假双栏（CONVENTIONS §1.7）。
  *
  * [model] 为 null 时进入未连接态：整屏提示「连接后可管理文件」，全部操作禁用（不造数）。
- * 本地文件/目录选择经 [pickUploadFiles]/[pickSaveDir] 注入（swing JFileChooser 为默认实现）。
- * AppShell 接线方式：连接成功后在 LaunchedEffect(connected) 中创建 SftpModel（fsFactory 取
- * session.newSftp()），以 remember{ } 持有并传入 FilesScreen(model)；断开时置回 null。
  */
 @Composable
 fun FilesScreen(
@@ -106,84 +120,62 @@ fun FilesScreen(
     var pendingRename by remember { mutableStateOf<SftpEntry?>(null) }
 
     Column(Modifier.fillMaxSize()) {
-        // 屏头（行密度收紧至 48dp 档，STATUS 3.4 终审）
+        // 屏头
         Row(
-            Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 24.dp),
+            Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = BareZenSpace.xxxl,
+                    end = BareZenSpace.xxl,
+                    top = BareZenSpace.xl,
+                    bottom = BareZenSpace.lg,
+                ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("文件传输", style = MaterialTheme.typography.titleLarge)
+            Text(
+                "在本地与远程主机之间拖拽传输文件",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.weight(1f))
-            OutlinedButton(
-                onClick = {
-                    model ?: return@OutlinedButton
+            Btn(
+                "上传",
+                {
+                    model ?: return@Btn
                     pickUploadFiles().forEach { path -> model.upload(path, File(path).name) }
                 },
+                kind = BtnKind.secondary,
                 enabled = model != null,
-            ) { Text("上传") }
-        }
-
-        // 路径栏：上级 + 当前路径 + 加载中 + 刷新 + 新建文件夹
-        Row(
-            Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 24.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OutlinedButton(
-                onClick = { model?.enter("..") },
-                enabled = model != null && state?.cwd != "/",
-            ) { Text("上级") }
-            Spacer(Modifier.width(8.dp))
-            Text(
-                state?.cwd ?: "—",
-                Modifier.weight(1f),
-                style = BareZenMonoBody,
-                fontSize = 13.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
-            if (state?.loading == true) {
-                Text(
-                    "加载中…",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.width(8.dp))
-            }
-            OutlinedButton(onClick = { model?.refresh() }, enabled = model != null) { Text("刷新") }
-            Spacer(Modifier.width(8.dp))
-            OutlinedButton(
-                onClick = { showMkdirDialog = true },
-                enabled = model != null,
-            ) { Text("新建文件夹") }
+            Spacer(Modifier.width(BareZenSpace.sm))
+            Btn("下载", {}, kind = BtnKind.secondary, enabled = false)
         }
 
-        // 错误提示（列表操作失败保留上次成功列表）
         if (state?.error != null) {
             Text(
                 "错误：${state.error}",
-                Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp),
+                Modifier.fillMaxWidth().padding(horizontal = BareZenSpace.xxxl, vertical = 4.dp),
                 fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.error,
+                color = LocalBareZenColors.current.onErrorContainer,
             )
         }
 
         // 主体
         if (model == null || state == null) {
-            Box(
-                Modifier.fillMaxWidth().weight(1f),
-                contentAlignment = Alignment.Center,
-            ) {
+            Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                 EmptyHint(Icons.Outlined.Folder, "连接后可管理文件")
             }
-        } else if (state.entries.isEmpty() && !state.loading) {
-            Box(
-                Modifier.fillMaxWidth().weight(1f),
-                contentAlignment = Alignment.Center,
-            ) {
-                EmptyHint(Icons.Outlined.InsertDriveFile, "空目录")
-            }
         } else {
-            LazyColumn(Modifier.fillMaxWidth().weight(1f).padding(horizontal = 24.dp)) {
-                items(state.entries) { entry ->
+            FilePane(
+                title = "远程",
+                entries = state.entries,
+                path = state.cwd,
+                canGoUp = state.cwd != "/",
+                loading = state.loading,
+                onGoUp = { model.enter("..") },
+                onRefresh = { model.refresh() },
+                onMkdir = { showMkdirDialog = true },
+                entryContent = { entry ->
                     EntryRow(
                         model = model,
                         entry = entry,
@@ -191,25 +183,18 @@ fun FilesScreen(
                         onDelete = { pendingDelete = entry },
                         onRename = { pendingRename = entry },
                     )
-                }
-            }
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = BareZenSpace.xxxl),
+            )
         }
 
-        // 底部传输进度区
-        if (tasks.isNotEmpty()) {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-            Column(
-                Modifier.fillMaxWidth().heightIn(max = 180.dp).verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 8.dp),
-            ) {
-                Text("传输任务", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(4.dp))
-                tasks.forEach { task -> TransferRow(task, onCancel = { model?.cancel(task.id) }) }
-            }
-        }
+        // 底部传输队列条（apple.css `.transfer-queue`，44dp）
+        TransferQueueBar(tasks = tasks, onCancel = { id -> model?.cancel(id) })
     }
 
-    // 新建文件夹对话框
     if (showMkdirDialog && model != null) {
         MkdirDialog(
             onConfirm = { name ->
@@ -246,8 +231,132 @@ fun FilesScreen(
 }
 
 /**
- * 文件列表行：图标 + 名称 + 大小 + 修改时间；目录整行可点进入，文件提供下载按钮。
- * 行尾提供重命名与删除入口（两操作均需二次确认）。
+ * 文件 pane（apple.css `.file-pane`）：panel 底标题条（含项数）| 路径栏（上级 + 路径 + 刷新/新建）
+ * | 三列表头（名称 2fr / 大小 1fr / 修改时间 1fr）| 滚动列表。
+ */
+@Composable
+private fun FilePane(
+    title: String,
+    entries: List<SftpEntry>,
+    path: String,
+    canGoUp: Boolean,
+    loading: Boolean,
+    onGoUp: () -> Unit,
+    onRefresh: () -> Unit,
+    onMkdir: () -> Unit,
+    entryContent: @Composable (SftpEntry) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(10.dp)
+    Surface(
+        modifier = modifier,
+        color = colors.surfaceContainerLow,
+        shape = shape,
+        border = BorderStroke(1.dp, colors.outline),
+    ) {
+        Column(Modifier.fillMaxSize()) {
+            // 标题条
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(colors.surfaceContainer)
+                    .padding(horizontal = BareZenSpace.lg, vertical = BareZenSpace.md),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    title,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.onSurface,
+                )
+                Spacer(Modifier.weight(1f))
+                Text("${entries.size} 项", fontSize = 11.sp, color = colors.onSurfaceVariant)
+            }
+            HorizontalDivider(color = colors.outline)
+            // 路径栏
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = BareZenSpace.md, vertical = BareZenSpace.sm),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(BareZenSpace.sm),
+            ) {
+                Btn(
+                    "",
+                    onGoUp,
+                    kind = BtnKind.secondary,
+                    small = true,
+                    enabled = canGoUp,
+                    icon = Icons.Outlined.ArrowUpward,
+                    iconContentDescription = "上级目录",
+                )
+                Text(
+                    path,
+                    Modifier.weight(1f),
+                    style = BareZenMonoBody,
+                    fontSize = 12.sp,
+                    color = colors.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (loading) {
+                    Text("加载中…", fontSize = 12.sp, color = colors.onSurfaceVariant)
+                }
+                Btn(
+                    "",
+                    onRefresh,
+                    kind = BtnKind.secondary,
+                    small = true,
+                    icon = Icons.Outlined.Refresh,
+                    iconContentDescription = "刷新",
+                )
+                Btn(
+                    "",
+                    onMkdir,
+                    kind = BtnKind.secondary,
+                    small = true,
+                    icon = Icons.Outlined.CreateNewFolder,
+                    iconContentDescription = "新建文件夹",
+                )
+            }
+            // 三列表头
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(colors.surfaceContainer)
+                    .padding(horizontal = BareZenSpace.lg, vertical = 6.dp),
+            ) {
+                Text(
+                    "名称", Modifier.weight(2f), fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold, color = colors.onSurfaceVariant,
+                )
+                Text(
+                    "大小", Modifier.weight(1f), fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold, color = colors.onSurfaceVariant,
+                )
+                Text(
+                    "修改时间", Modifier.weight(1f), fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold, color = colors.onSurfaceVariant,
+                )
+            }
+            HorizontalDivider(color = colors.outlineVariant)
+            Box(Modifier.weight(1f)) {
+                if (entries.isEmpty() && !loading) {
+                    EmptyHint(Icons.AutoMirrored.Outlined.InsertDriveFile, "空目录")
+                } else {
+                    LazyColumn(Modifier.fillMaxSize()) {
+                        items(entries) { entry -> entryContent(entry) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 文件列表行：图标 + 名称 + 大小 + 修改时间 + 行尾操作。
+ * 行高 34dp（apple.css `.file-row` 12px 上下内边距），hover 走 surfaceContainerHighest。
  */
 @Composable
 private fun EntryRow(
@@ -257,72 +366,164 @@ private fun EntryRow(
     onDelete: () -> Unit,
     onRename: () -> Unit,
 ) {
-    // 行密度收紧至 48dp 档；hover 用 surfaceContainerHigh（STATUS 3.4 终审）
+    val colors = MaterialTheme.colorScheme
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     Row(
-        Modifier.fillMaxWidth().height(48.dp)
-            .background(
-                if (hovered) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent,
-            )
+        Modifier
+            .fillMaxWidth()
+            .height(34.dp)
+            .background(if (hovered) colors.surfaceContainerHighest else Color.Transparent)
             .clickable(
                 interactionSource = interaction,
                 indication = null,
                 enabled = entry.isDirectory,
             ) { model.enter(entry.name) }
-            .padding(horizontal = 8.dp),
+            .padding(horizontal = BareZenSpace.lg),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            if (entry.isDirectory) Icons.Outlined.Folder else Icons.Outlined.InsertDriveFile,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.width(8.dp))
         Text(
             entry.name,
-            Modifier.weight(1f),
-            fontSize = 13.sp,
+            Modifier.weight(2f),
+            fontSize = 12.sp,
+            color = colors.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Text(
             if (entry.isDirectory) "—" else FileSizeFormatter.format(entry.size),
-            Modifier.width(88.dp),
+            Modifier.weight(1f),
             fontSize = 12.sp,
-            style = BareZenMonoBody,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = colors.onSurfaceVariant,
+            maxLines = 1,
         )
-        Spacer(Modifier.width(8.dp))
         Text(
             mtimeFormat.format(Date(entry.mtimeMs)),
-            Modifier.width(120.dp),
+            Modifier.weight(1f),
             fontSize = 12.sp,
-            style = BareZenMonoBody,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = colors.onSurfaceVariant,
+            maxLines = 1,
         )
-        Spacer(Modifier.width(8.dp))
         if (!entry.isDirectory) {
-            TextButton(onClick = {
-                val dir = pickSaveDir() ?: return@TextButton
-                model.download(
-                    remotePath = SftpPaths.join(model.state.value.cwd, entry.name),
-                    localPath = File(dir, entry.name).absolutePath,
-                    totalBytes = entry.size,
-                )
-            }) { Text("下载") }
+            TextButton(
+                onClick = {
+                    val dir = pickSaveDir() ?: return@TextButton
+                    model.download(
+                        remotePath = SftpPaths.join(model.state.value.cwd, entry.name),
+                        localPath = File(dir, entry.name).absolutePath,
+                        totalBytes = entry.size,
+                    )
+                },
+            ) { Text("下载", fontSize = 12.sp) }
         }
         TextButton(
             onClick = onRename,
             modifier = Modifier.testTag(FILE_RENAME_PREFIX + entry.name),
-        ) { Text("重命名") }
+        ) { Text("重命名", fontSize = 12.sp) }
         TextButton(
             onClick = onDelete,
             modifier = Modifier.testTag(FILE_DELETE_PREFIX + entry.name),
-        ) { Text("删除") }
+        ) { Text("删除", fontSize = 12.sp, color = colors.error) }
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    HorizontalDivider(color = colors.outlineVariant)
+}
+
+/**
+ * 传输队列条（apple.css `.transfer-queue`）：固定 44dp 底条。
+ * 无任务时只显示「0 个活跃任务」一行；有任务时可滚动展开进度。
+ */
+@Composable
+private fun TransferQueueBar(tasks: List<TransferTask>, onCancel: (Long) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val extras = LocalBareZenColors.current
+    val running = tasks.count { it.status == TransferStatus.Running }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .height(BareZenSize.transferQueueHeight)
+            .background(colors.surface),
+    ) {
+        HorizontalDivider(color = colors.outline)
+        if (tasks.isEmpty()) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = BareZenSpace.lg),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "传输队列",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.onSurface,
+                )
+                Spacer(Modifier.width(BareZenSpace.md))
+                Text("0 个活跃任务", fontSize = 12.sp, color = colors.onSurfaceVariant)
+            }
+        } else {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 180.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = BareZenSpace.lg, vertical = 8.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "传输队列",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.onSurface,
+                    )
+                    Spacer(Modifier.width(BareZenSpace.md))
+                    Text("$running 个活跃任务", fontSize = 12.sp, color = colors.onSurfaceVariant)
+                }
+                tasks.forEach { task -> TransferRow(task, onCancel) }
+            }
+        }
+    }
+}
+
+/** 单个传输任务行：类型 + 名称 + 进度条 + 百分比/状态 + 取消。 */
+@Composable
+private fun TransferRow(task: TransferTask, onCancel: (Long) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val extras = LocalBareZenColors.current
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            if (task.kind == TransferKind.UPLOAD) "上传" else "下载",
+            fontSize = 12.sp,
+            color = colors.onSurfaceVariant,
+        )
+        Text(
+            task.name,
+            Modifier.width(160.dp),
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (task.totalBytes > 0) {
+            val fraction = (task.transferredBytes.toDouble() / task.totalBytes).toFloat().coerceIn(0f, 1f)
+            LinearProgressIndicator(progress = { fraction }, modifier = Modifier.weight(1f))
+            Text("${(fraction * 100).roundToInt()}%", fontSize = 12.sp, style = BareZenMonoBody)
+        } else {
+            LinearProgressIndicator(modifier = Modifier.weight(1f))
+            Text(FileSizeFormatter.format(task.transferredBytes), fontSize = 12.sp, style = BareZenMonoBody)
+        }
+        when (val status = task.status) {
+            is TransferStatus.Done -> Text("完成", fontSize = 12.sp, color = extras.success)
+            is TransferStatus.Failed -> Text(
+                "失败：${status.message}",
+                fontSize = 12.sp,
+                color = colors.error,
+            )
+            TransferStatus.Running -> TextButton(onClick = { onCancel(task.id) }) {
+                Text("取消", fontSize = 12.sp)
+            }
+        }
+    }
 }
 
 /**
@@ -352,7 +553,7 @@ private fun DeleteConfirmDialog(entry: SftpEntry, onConfirm: () -> Unit, onDismi
                 onClick = onConfirm,
                 modifier = Modifier.testTag(FILE_DELETE_CONFIRM_TAG),
             ) {
-                Text("删除", color = MaterialTheme.colorScheme.error)
+                Text("删除", color = LocalBareZenColors.current.onErrorContainer)
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
@@ -380,7 +581,7 @@ private fun RenameDialog(entry: SftpEntry, onConfirm: (String) -> Unit, onDismis
                     modifier = Modifier.testTag(FILE_RENAME_INPUT_TAG),
                 )
                 if (error != null) {
-                    Text(error, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                    Text(error, fontSize = 12.sp, color = LocalBareZenColors.current.onErrorContainer)
                 }
             }
         },
@@ -393,54 +594,6 @@ private fun RenameDialog(entry: SftpEntry, onConfirm: (String) -> Unit, onDismis
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
     )
-}
-
-/** 单个传输任务行：类型 + 名称 + 进度条 + 百分比/状态 + 取消。 */
-@Composable
-private fun TransferRow(task: TransferTask, onCancel: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            if (task.kind == TransferKind.UPLOAD) "上传" else "下载",
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            task.name,
-            Modifier.width(160.dp),
-            fontSize = 12.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (task.totalBytes > 0) {
-            val fraction = (task.transferredBytes.toDouble() / task.totalBytes).toFloat().coerceIn(0f, 1f)
-            LinearProgressIndicator(progress = { fraction }, modifier = Modifier.weight(1f))
-            Text(
-                "${(fraction * 100).roundToInt()}%",
-                fontSize = 12.sp,
-                style = BareZenMonoBody,
-            )
-        } else {
-            LinearProgressIndicator(modifier = Modifier.weight(1f))
-            Text(
-                FileSizeFormatter.format(task.transferredBytes),
-                fontSize = 12.sp,
-                style = BareZenMonoBody,
-            )
-        }
-        when (val status = task.status) {
-            is TransferStatus.Done -> Text("完成", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-            is TransferStatus.Failed -> Text(
-                "失败：${status.message}",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.error,
-            )
-            TransferStatus.Running -> TextButton(onClick = onCancel) { Text("取消") }
-        }
-    }
 }
 
 /** 新建文件夹对话框：输入名称，空名不可确认。 */
@@ -461,9 +614,7 @@ private fun MkdirDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
         confirmButton = {
             TextButton(enabled = name.isNotBlank(), onClick = { onConfirm(name) }) { Text("创建") }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
-        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
     )
 }
 
@@ -484,7 +635,7 @@ private fun chooseSaveDir(): String? {
     val chooser = JFileChooser()
     chooser.fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
     chooser.dialogTitle = "选择保存目录"
-    return if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+    return if (chooser.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
         chooser.selectedFile.absolutePath
     } else {
         null

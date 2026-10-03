@@ -68,13 +68,11 @@ class ServersScreenTest {
     @Test fun vocabularyAndReconnectPlaceholder() = runComposeUiTest {
         val m = model()
         setContent { BareZenTheme { ServersScreen(m, onNewTerminal = {}, onOpenFiles = {}) } }
-        // 简报原断言 onNodeWithText("打开文件传输").assertIsDisplayed() 不可满足：
-        // 设计包要求每张卡都带该按钮（mock 三卡皆有），model() 有 2 张卡 → 该文案恒为 2 节点，
-        // onNodeWithText 单节点查找必抛「Expected exactly 1 node but found 2」。
-        // 按裁决「brief-vs-reality 以设计包/实际代码为准」改为断言两张卡全部换上新词。
-        assertEquals(2, onAllNodesWithText("打开文件传输").fetchSemanticsNodes().size)
-        onNodeWithText("打开文件管理").assertDoesNotExist()    // 旧词清零
-        onNodeWithText("全部重连").assertIsNotEnabled()        // 占位 M2：禁用
+        // 每张卡都带「文件传输」按钮（mock 三卡皆有），model() 有 2 张卡 → 该文案恒为 2 节点，
+        // 故用 onAllNodes 计数而非单节点查找。
+        assertEquals(2, onAllNodesWithText("文件传输").fetchSemanticsNodes().size)
+        assertEquals(2, onAllNodesWithText("新建终端").fetchSemanticsNodes().size)
+        onNodeWithText("全部重连").assertIsNotEnabled()        // 占位 M2：禁用（无重连能力就不给可点入口）
     }
 
     @OptIn(ExperimentalTestApi::class)

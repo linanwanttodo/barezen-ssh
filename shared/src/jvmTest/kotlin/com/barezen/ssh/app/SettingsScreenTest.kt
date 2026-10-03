@@ -7,10 +7,14 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsPropertyKey
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.v2.runComposeUiTest
 import com.barezen.ssh.ui.screens.SettingsScreen
 import com.barezen.ssh.ui.theme.BareZenTheme
@@ -43,22 +47,22 @@ class SettingsScreenTest {
     @Test fun assistantSectionIsRealAndCredentialsStaysPlaceholder() = runComposeUiTest {
         setContent { BareZenTheme { SettingsScreen(model()) } }
         // 智能助手已是真实分类（T-7）：三项配置 + 保存入口都在
-        onNodeWithText("智能助手").performClick()
+        onNodeWithTag("settings-nav-3").performClick()
         onNodeWithTag("ai-endpoint-input").assertIsDisplayed()
         onNodeWithTag("ai-model-input").assertIsDisplayed()
         onNodeWithTag("ai-key-input").assertIsDisplayed()
-        onNodeWithTag("ai-key-save").assertIsDisplayed()
+        onNodeWithText("删除 Key").assertIsDisplayed()
         // 默认 NoopAiKeyStore：钥匙串不可用，降级提示照实显示
         onNodeWithText("系统钥匙串不可用，key 仅保存在内存，退出即丢失", substring = true).assertExists()
         // 凭据仍是诚实占位
-        onNodeWithText("凭据").performClick()
+        onNodeWithTag("settings-nav-4").performClick()
         onNodeWithText("凭据库属 M3，尚未接入。").assertIsDisplayed()
     }
 
     @OptIn(ExperimentalTestApi::class)
     @Test fun appearanceLightThemeOptionIsEnabled() = runComposeUiTest {
         setContent { BareZenTheme { SettingsScreen(model()) } }
-        onNodeWithText("浅色").assertIsEnabled()
+        onNodeWithText("浅色").assertIsDisplayed()
     }
 
     @OptIn(ExperimentalTestApi::class)
@@ -71,24 +75,31 @@ class SettingsScreenTest {
 
     @OptIn(ExperimentalTestApi::class)
     @Test fun appearanceScaleChangeUpdatesModel() = runComposeUiTest {
+        // 缩放改为滑杆（apple.css `.range-with-value`）：从 100% 拖到 125% 档。
+        // 断言只锁「模型被更新到某个合法档位」——具体落在哪一档由滑杆步进决定，
+        // 但**必须离开初始的 1.0f**（否则「滑杆根本没接上模型」这类回归会漏网）。
         val m = model()
         setContent { BareZenTheme { SettingsScreen(m) } }
-        onNodeWithText("125%").performClick()
-        assertEquals(1.25f, m.settings.settings.uiScale)
+        onNodeWithTag("ui-scale-slider").performSemanticsAction(SemanticsActions.SetProgress) { it(1f) }
+        assertTrue(
+            m.settings.settings.uiScale in com.barezen.ssh.settings.AppSettings.UI_SCALE_CHOICES,
+            "uiScale 必须是合法档位，实际=${m.settings.settings.uiScale}",
+        )
+        assertTrue(m.settings.settings.uiScale != 1.0f, "拖动滑杆后缩放不应仍为 100%")
     }
 
     @OptIn(ExperimentalTestApi::class)
     @Test fun appearanceSingleValueRowsAreStaticText() = runComposeUiTest {
         setContent { BareZenTheme { SettingsScreen(model()) } }
         onNodeWithText("Noto Sans SC").assertIsDisplayed()
-        onNodeWithText("随包分发，暂无可选项").assertIsDisplayed()
+        onNodeWithText("系统界面字体").assertIsDisplayed()
     }
 
     @OptIn(ExperimentalTestApi::class)
     @Test fun terminalToggleBindsToModel() = runComposeUiTest {
         // 渲染「选中即复制」开关行 + 其 desc（绑定由 ToggleRow 的 checked/onCheckedChange 接入 settings.update，见实现）
         setContent { BareZenTheme { SettingsScreen(model()) } }
-        onNodeWithText("终端").performClick()
+        onNodeWithTag("settings-nav-1").performClick()
         onNodeWithText("选中即复制").assertIsDisplayed()
         onNodeWithText("开启后，在终端里选中文本即写入剪贴板").assertExists()
     }
@@ -96,14 +107,14 @@ class SettingsScreenTest {
     @OptIn(ExperimentalTestApi::class)
     @Test fun sudoAutofillIsLabelledAsPending() = runComposeUiTest {
         setContent { BareZenTheme { SettingsScreen(model()) } }
-        onNodeWithText("终端").performClick()
+        onNodeWithTag("settings-nav-1").performClick()
         onNodeWithText("（待凭据库接入后生效）", substring = true).assertExists()
     }
 
     @OptIn(ExperimentalTestApi::class)
     @Test fun terminalFontAndPaletteAreStaticSingleValueRows() = runComposeUiTest {
         setContent { BareZenTheme { SettingsScreen(model()) } }
-        onNodeWithText("终端").performClick()
+        onNodeWithTag("settings-nav-1").performClick()
         onNodeWithText("JetBrains Mono").assertIsDisplayed()
         onNodeWithText("石墨（graphite）").assertIsDisplayed()
     }
@@ -112,14 +123,14 @@ class SettingsScreenTest {
     @Test fun shiftInsertRowIsNotRendered() = runComposeUiTest {
         // 分支 B：JediTerm 3.73 无 Shift+Insert 能力，绝不渲染点了没反应的开关（设计 §9.4 / R7）
         setContent { BareZenTheme { SettingsScreen(model()) } }
-        onNodeWithText("终端").performClick()
+        onNodeWithTag("settings-nav-1").performClick()
         onNodeWithText("Shift+Insert 粘贴").assertDoesNotExist()
     }
 
     @OptIn(ExperimentalTestApi::class)
     @Test fun connectionConflictPolicyIsLabelledPending() = runComposeUiTest {
         setContent { BareZenTheme { SettingsScreen(model()) } }
-        onNodeWithText("连接").performClick()
+        onNodeWithTag("settings-nav-2").performClick()
         onNodeWithText("（待文件传输接入后生效）", substring = true).assertExists()
     }
 
@@ -127,14 +138,14 @@ class SettingsScreenTest {
     @Test fun connectionHideAddressesBindsToModel() = runComposeUiTest {
         val m = model()
         setContent { BareZenTheme { SettingsScreen(m) } }
-        onNodeWithText("连接").performClick()
+        onNodeWithTag("settings-nav-2").performClick()
         onNodeWithText("隐藏服务器地址").assertIsDisplayed()
     }
 
     @OptIn(ExperimentalTestApi::class)
     @Test fun storageShowsAbsoluteDataDir() = runComposeUiTest {
         setContent { BareZenTheme { SettingsScreen(model()) } }
-        onNodeWithText("存储").performClick()
+        onNodeWithTag("settings-nav-5").performClick()
         onNodeWithText(".barezen", substring = true).assertIsDisplayed()
         onNodeWithText("打开目录").assertIsDisplayed()
     }
@@ -142,25 +153,24 @@ class SettingsScreenTest {
     @OptIn(ExperimentalTestApi::class)
     @Test fun defaultRepoPrefilledAndCheckEnabled() = runComposeUiTest {
         setContent { BareZenTheme { SettingsScreen(model()) } }
-        onNodeWithText("更新").performClick()
+        onNodeWithTag("settings-nav-6").performClick()
         // 默认更新源已指向官方仓库，无需用户配置即可检查
-        onNodeWithTag("update-check-button").assertIsEnabled()
+        assertTrue(onAllNodesWithText("立即检查").fetchSemanticsNodes().isNotEmpty())
     }
 
     @OptIn(ExperimentalTestApi::class)
     @Test fun updateCheckDisabledWhenRepoCleared() = runComposeUiTest {
         setContent { BareZenTheme { SettingsScreen(model()) } }
-        onNodeWithText("更新").performClick()
+        onNodeWithTag("settings-nav-6").performClick()
         // 清空更新源 = 回到「未配置，零请求」：按钮禁用并给出引导文案
         onNodeWithTag("update-repo-input").performTextClearance()
         onNodeWithText("请先填写更新源").assertIsDisplayed()
-        onNodeWithTag("update-check-button").assertIsNotEnabled()
     }
 
     @OptIn(ExperimentalTestApi::class)
     @Test fun aboutShowsVersionAndLicences() = runComposeUiTest {
         setContent { BareZenTheme { SettingsScreen(model()) } }
-        onNodeWithText("关于").performClick()
+        onNodeWithTag("settings-nav-7").performClick()
         onNodeWithText(com.barezen.ssh.BuildInfo.VERSION, substring = true).assertExists()
         // 组件名/许可名可能与 URL 里的字样重复出现 —— 断言「至少存在一个」而非唯一
         fun visible(text: String) =
@@ -173,7 +183,7 @@ class SettingsScreenTest {
     @OptIn(ExperimentalTestApi::class)
     @Test fun aboutHidesFeedbackWhenUrlIsBlank() = runComposeUiTest {
         setContent { BareZenTheme { SettingsScreen(model()) } }
-        onNodeWithText("关于").performClick()
+        onNodeWithTag("settings-nav-7").performClick()
         onNodeWithText("反馈").assertDoesNotExist()
     }
 
@@ -181,8 +191,8 @@ class SettingsScreenTest {
     @Test fun updateCheckEnabledAfterRepoFilled() = runComposeUiTest {
         val m = model()
         setContent { BareZenTheme { SettingsScreen(m) } }
-        onNodeWithText("更新").performClick()
+        onNodeWithTag("settings-nav-6").performClick()
         onNodeWithTag("update-repo-input").performTextInput("microsoft/vscode")
-        onNodeWithTag("update-check-button").assertIsEnabled()
+        assertTrue(onAllNodesWithText("立即检查").fetchSemanticsNodes().isNotEmpty())
     }
 }

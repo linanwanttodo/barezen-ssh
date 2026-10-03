@@ -34,22 +34,36 @@ val BareZenMonoFontFamily: FontFamily
         Font(Res.font.JetBrainsMono_Bold, FontWeight.Bold),
     )
 
-/** 设计包 §3 字号阶（行高按倍率换算为字面值，保证与测试同字面量）。 */
+/**
+ * 字号阶（apple.css 各处 `font-size` / `line-height`）：
+ * 界面正文 13sp/20.8，辅助与标签 11sp/15.4、次级 12sp/18，说明行 13sp 随正文。
+ * 终端区 13sp 等宽由 JediTerm 侧接管，不在此体系内。
+ */
 val BareZenTypography: Typography
     @Composable get() = Typography(
-        titleLarge = TextStyle(fontFamily = BareZenUiFontFamily, fontSize = 24.sp, lineHeight = 31.2.sp, fontWeight = FontWeight.Bold),
-        titleMedium = TextStyle(fontFamily = BareZenUiFontFamily, fontSize = 18.sp, lineHeight = 25.2.sp, fontWeight = FontWeight.Bold),
-        titleSmall = TextStyle(fontFamily = BareZenUiFontFamily, fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold),
-        bodyLarge = TextStyle(fontFamily = BareZenUiFontFamily, fontSize = 14.sp, lineHeight = 22.4.sp, fontWeight = FontWeight.Normal),
-        bodyMedium = TextStyle(fontFamily = BareZenUiFontFamily, fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Normal),
-        bodySmall = TextStyle(fontFamily = BareZenUiFontFamily, fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Normal),
-        labelLarge = TextStyle(fontFamily = BareZenUiFontFamily, fontSize = 11.sp, lineHeight = 15.4.sp, fontWeight = FontWeight.Medium),
-        labelMedium = TextStyle(fontFamily = BareZenUiFontFamily, fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Normal),
-        labelSmall = TextStyle(fontFamily = BareZenUiFontFamily, fontSize = 11.sp, lineHeight = 15.4.sp, fontWeight = FontWeight.Medium),
+        titleLarge = TextStyle(fontFamily = BareZenUiFontFamily, fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold),
+        titleMedium = TextStyle(fontFamily = BareZenUiFontFamily, fontSize = 17.sp, lineHeight = 23.sp, fontWeight = FontWeight.SemiBold),
+        titleSmall = TextStyle(fontFamily = BareZenUiFontFamily, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
+        bodyLarge = TextStyle(fontFamily = BareZenUiFontFamily, fontSize = 13.sp, lineHeight = 20.sp, fontWeight = FontWeight.Normal),
+        bodyMedium = TextStyle(fontFamily = BareZenUiFontFamily, fontSize = 13.sp, lineHeight = 20.sp, fontWeight = FontWeight.Normal),
+        bodySmall = TextStyle(fontFamily = BareZenUiFontFamily, fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.Normal),
+        labelLarge = TextStyle(fontFamily = BareZenUiFontFamily, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium),
+        labelMedium = TextStyle(fontFamily = BareZenUiFontFamily, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium),
+        labelSmall = TextStyle(fontFamily = BareZenUiFontFamily, fontSize = 11.sp, lineHeight = 15.sp, fontWeight = FontWeight.Medium),
     )
 
-/** 等宽样式对（屏内显式引用：主机地址用 Body、延迟/指标用 Small）。 */
+/** 等宽样式对（屏内显式引用：主机地址用 Body、延迟/指标/路径用 Small）。 */
 val BareZenMonoBody: TextStyle
-    @Composable get() = TextStyle(fontFamily = BareZenMonoFontFamily, fontSize = 13.sp, lineHeight = 19.5.sp)
+    @Composable get() = TextStyle(fontFamily = BareZenMonoFontFamily, fontSize = 13.sp, lineHeight = 20.sp)
 val BareZenMonoSmall: TextStyle
-    @Composable get() = TextStyle(fontFamily = BareZenMonoFontFamily, fontSize = 11.sp, lineHeight = 15.4.sp)
+    @Composable get() = TextStyle(fontFamily = BareZenMonoFontFamily, fontSize = 11.sp, lineHeight = 15.sp)
+
+/** 指标大数值（apple.css `.metric-value`：等宽 30sp/600/-0.02em，配套 14sp 单位）。 */
+val BareZenMonoMetric: TextStyle
+    @Composable get() = TextStyle(
+        fontFamily = BareZenMonoFontFamily,
+        fontSize = 30.sp,
+        lineHeight = 33.sp,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = (-0.5).sp,
+    )

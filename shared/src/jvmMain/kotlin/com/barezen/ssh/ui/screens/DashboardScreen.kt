@@ -4,24 +4,28 @@ package com.barezen.ssh.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Insights
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,7 +51,14 @@ import com.barezen.ssh.app.AppModel
 import com.barezen.ssh.ssh.metrics.DiskUsage
 import com.barezen.ssh.ssh.metrics.MetricsCollector
 import com.barezen.ssh.ssh.metrics.MetricsSnapshot
+import com.barezen.ssh.ui.components.Btn
+import com.barezen.ssh.ui.components.BtnKind
+import com.barezen.ssh.ui.components.BzCard
+import com.barezen.ssh.ui.components.SectionTitle
 import com.barezen.ssh.ui.theme.BareZenMonoBody
+import com.barezen.ssh.ui.theme.BareZenMonoMetric
+import com.barezen.ssh.ui.theme.BareZenSpace
+import com.barezen.ssh.ui.theme.LocalBareZenColors
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -54,8 +66,11 @@ import kotlin.math.roundToInt
 private const val CPU_HISTORY_MAX = 60
 
 /**
- * 仪表盘屏：未连接时四指标卡显示「—」、图表卡显示占位文案（无连接不造数）；
- * 已连接时由 [MetricsSnapshot] 渲染真数据。「刷新」仅在连接后可用。
+ * 仪表盘屏（apple.html `#dashboard`）：屏头（副标题 + 服务器选择 + 刷新）| 四指标卡 |
+ * 趋势图卡（含图例）| 磁盘用量卡。
+ *
+ * 未连接时四指标卡显示「—」、图表卡显示占位文案（无连接不造数）；已连接时由
+ * [MetricsSnapshot] 渲染真数据。
  */
 @Composable
 fun DashboardScreen(
@@ -63,6 +78,7 @@ fun DashboardScreen(
     connected: Boolean = false,
     onRefresh: () -> Unit = {},
 ) {
+    val extras = LocalBareZenColors.current
     // CPU 折线：跨快照累积最近 60 个采样（epochMs 变化即新快照）
     val cpuHistory = remember { mutableStateListOf<Double>() }
     LaunchedEffect(snapshot?.epochMs) {
@@ -74,60 +90,123 @@ fun DashboardScreen(
     val emptyChartText = if (connected) "等待主机指标" else "连接后显示主机指标"
 
     Column(Modifier.fillMaxSize()) {
-        // 屏头（通用式样：56dp、horizontal 24）
+        // 屏头（apple.css `.screen-header`）：左副标题，右工具组
         Row(
-            Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 24.dp),
+            Modifier
+                .fillMaxWidth()
+                .padding(start = BareZenSpace.xxxl, end = BareZenSpace.xxl, top = BareZenSpace.xl, bottom = BareZenSpace.lg),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("仪表盘", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.width(16.dp))
-            OutlinedButton(onClick = {}, enabled = false) { Text("选择服务器") }
+            Text(
+                "实时监控 SSH 主机的关键指标",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.weight(1f))
             Text(
                 "数据来源：SSH 主机指标",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.width(8.dp))
-            OutlinedButton(onClick = onRefresh, enabled = connected) { Text("刷新") }
+            Spacer(Modifier.width(BareZenSpace.md))
+            Btn("刷新", onRefresh, kind = BtnKind.secondary, enabled = connected)
         }
 
         Column(
-            Modifier.weight(1f).padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = BareZenSpace.xxxl)
+                .padding(bottom = BareZenSpace.xxxl),
+            verticalArrangement = Arrangement.spacedBy(BareZenSpace.lg),
         ) {
-            // 指标格四卡：标签 10sp secondary + 值（BareZenMonoBody）
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                MetricCard("CPU", formatPct(snapshot?.cpuPct), modifier = Modifier.weight(1f))
-                MetricCard("内存", formatPct(snapshot?.memUsedPct), memorySubline(snapshot), modifier = Modifier.weight(1f))
-                MetricCard("平均负载", formatLoad1(snapshot?.load1), loadSubline(snapshot), modifier = Modifier.weight(1f))
-                MetricCard("运行时间", formatUptime(snapshot?.uptimeSeconds), modifier = Modifier.weight(1f))
+            // 指标格四卡（apple.css `.metric-grid`）：4 等宽 + 16 间距
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(BareZenSpace.lg)) {
+                MetricCard(
+                    label = "CPU 使用率",
+                    value = formatPct(snapshot?.cpuPct),
+                    trend = snapshot?.cpuPct?.let { "最近 ${it.roundToInt()}%" },
+                    accent = extras.metricCpu,
+                    modifier = Modifier.weight(1f),
+                )
+                MetricCard(
+                    label = "内存使用",
+                    value = formatPct(snapshot?.memUsedPct),
+                    trend = memorySubline(snapshot),
+                    accent = extras.metricMem,
+                    modifier = Modifier.weight(1f),
+                )
+                MetricCard(
+                    label = "平均负载",
+                    value = formatLoad1(snapshot?.load1),
+                    trend = loadSubline(snapshot),
+                    accent = extras.metricLoad,
+                    modifier = Modifier.weight(1f),
+                )
+                MetricCard(
+                    label = "运行时间",
+                    value = formatUptimeShort(snapshot?.uptimeSeconds),
+                    trend = snapshot?.uptimeSeconds?.let { "已运行 ${it.roundToInt() / 86400} 天" },
+                    accent = extras.metricUptime,
+                    modifier = Modifier.weight(1f),
+                )
             }
 
-            // 两张图表卡：按权重等高填满剩余高度（高度约束见原占位版注释，不叠 heightIn）
-            ChartCard(
-                title = "CPU 使用率（最近 60 次采样）",
-                empty = cpuHistory.size < 2,
-                emptyText = emptyChartText,
-                modifier = Modifier.weight(1f),
-            ) {
-                CpuChart(cpuHistory)
+            // 趋势图卡（apple.css `.chart-card` + `.chart-legend`）
+            BzCard(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = BareZenSpace.lg),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SectionTitle("CPU / 内存 / 网络趋势")
+                    Spacer(Modifier.weight(1f))
+                    LegendDot("CPU", extras.metricCpu)
+                    Spacer(Modifier.width(BareZenSpace.lg))
+                    LegendDot("内存", extras.metricMem)
+                    Spacer(Modifier.width(BareZenSpace.lg))
+                    LegendDot("网络", extras.metricNet)
+                }
+                Box(Modifier.fillMaxWidth().height(180.dp), contentAlignment = Alignment.Center) {
+                    if (cpuHistory.size < 2) {
+                        EmptyHint(Icons.Outlined.Insights, emptyChartText)
+                    } else {
+                        CpuChart(cpuHistory)
+                    }
+                }
             }
-            ChartCard(
-                title = "磁盘用量",
-                empty = snapshot?.disks.isNullOrEmpty(),
-                emptyText = emptyChartText,
-                modifier = Modifier.weight(1f),
-            ) {
-                DiskBars(snapshot!!.disks)
+
+            // 磁盘用量卡
+            BzCard(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = BareZenSpace.lg),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SectionTitle("磁盘用量")
+                    Spacer(Modifier.weight(1f))
+                    val used = snapshot?.disks?.sumOf { it.usedKb } ?: 0L
+                    val total = snapshot?.disks?.sumOf { it.totalKb } ?: 0L
+                    Text(
+                        if (total > 0) "已用 ${formatGb(used)} / ${formatGb(total)}" else "—",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = BareZenMonoBody,
+                    )
+                }
+                Box(Modifier.fillMaxWidth().height(180.dp), contentAlignment = Alignment.Center) {
+                    if (snapshot?.disks.isNullOrEmpty()) {
+                        EmptyHint(Icons.Outlined.Insights, emptyChartText)
+                    } else {
+                        DiskBars(snapshot!!.disks)
+                    }
+                }
             }
         }
     }
 }
 
 /**
- * AppShell 接线层：跟随**活动会话**创建/销毁 [MetricsCollector]（轮询经 SshSession.exec 采集），
- * 并把快照交给 [DashboardScreen]。
+ * AppShell 接线层：跟随**活动会话**创建/销毁 [MetricsCollector]，并把快照交给 [DashboardScreen]。
  *
  * key 用会话 id 而非布尔 connected：两条会话**同时 Connected** 时布尔值恒为 true，
  * 只以它为 key 的 LaunchedEffect 不会重跑，切换活动会话后仍会显示旧会话的指标。
@@ -159,25 +238,69 @@ fun DashboardHost(model: AppModel) {
 
 // ---- 指标卡 ----
 
-/** 指标卡：surface 皮肤（设计包 .metric-card background: var(--surface)），值位缺数据时「—」。 */
+/**
+ * 指标卡（apple.css `.metric-card`）：panel 底 + 描边 + 圆角 10；顶部 3dp 色条按指标分色
+ * （`--metric-accent`）；值位等宽 30sp/600，缺数据一律「—」（不造数）。
+ */
 @Composable
-private fun MetricCard(label: String, value: String, sub: String? = null, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-    ) {
-        Column(
-            Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+private fun MetricCard(
+    label: String,
+    value: String,
+    trend: String?,
+    accent: Color,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(10.dp)
+    // 整卡 clip：顶部色条必须被卡片的圆角裁切，否则 3dp 直角条会从圆角外露出去。
+    Box(modifier.clip(shape)) {
+        // 顶部色条（apple.css `.metric-card::before`，3dp、按指标分色、85% 不透明）
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(3.dp)
+                .background(accent.copy(alpha = 0.85f)),
+        )
+        Surface(
+            color = colors.surfaceContainer,
+            shape = shape,
+            border = BorderStroke(1.dp, colors.outline),
         ) {
-            Text(label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = BareZenMonoBody)
-            if (sub != null) {
-                Text(sub, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(
+                Modifier.fillMaxWidth().padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    label,
+                    fontSize = 11.sp,
+                    color = colors.onSurfaceVariant,
+                )
+                Text(
+                    value,
+                    style = BareZenMonoMetric,
+                    color = colors.onSurface,
+                )
+                Text(
+                    trend ?: "—",
+                    fontSize = 11.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                    color = colors.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
+    }
+}
+
+/** 图例（apple.css `.legend-item`）：8dp 圆点 + 11sp 文字。 */
+@Composable
+private fun LegendDot(text: String, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(8.dp).background(color, CircleShape))
+        Spacer(Modifier.width(6.dp))
+        Text(text, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -187,77 +310,32 @@ private fun formatPct(v: Double?): String = if (v == null) "—" else "${v.round
 
 private fun formatLoad1(v: Double?): String = if (v == null) "—" else String.format(Locale.ROOT, "%.2f", v)
 
-private fun formatUptime(seconds: Double?): String {
+/** 运行时间走「天」为单位的紧凑写法（apple.html 显示 `45天`）。 */
+private fun formatUptimeShort(seconds: Double?): String {
     if (seconds == null || seconds < 0) return "—"
-    val s = seconds.toLong()
-    val days = s / 86_400
-    val hours = (s % 86_400) / 3_600
-    val minutes = (s % 3_600) / 60
-    return when {
-        days > 0 -> "$days 天 $hours 小时"
-        hours > 0 -> "$hours 小时 $minutes 分钟"
-        else -> "$minutes 分钟"
-    }
+    val days = (seconds / 86_400).toLong()
+    return if (days > 0) "$days" else "${seconds.toLong() / 3600}"
 }
 
-private fun formatGb(kb: Long): String = String.format(Locale.ROOT, "%.1f GB", kb / 1024.0 / 1024.0)
-
 private fun memorySubline(snapshot: MetricsSnapshot?): String? {
-    val total = snapshot?.memTotalKb ?: return null
-    val usedPct = snapshot.memUsedPct ?: return null
-    val usedKb = (total * usedPct / 100.0).toLong()
-    return "已用 ${formatGb(usedKb)} / 总 ${formatGb(total)}"
+    val usedPct = snapshot?.memUsedPct ?: return null
+    return "已用 ${usedPct.roundToInt()}%"
 }
 
 private fun loadSubline(snapshot: MetricsSnapshot?): String? {
     val l5 = snapshot?.load5 ?: return null
-    val l15 = snapshot.load15 ?: return null
-    return "5 分钟 ${String.format(Locale.ROOT, "%.2f", l5)} / 15 分钟 ${String.format(Locale.ROOT, "%.2f", l15)}"
+    return "5 分钟 ${String.format(Locale.ROOT, "%.2f", l5)}"
 }
 
-// ---- 图表卡与图形 ----
+/** KB -> GB，一位小数（磁盘卡头部汇总用）。 */
+private fun formatGb(kb: Long): String = String.format(Locale.ROOT, "%.1f G", kb / 1024.0 / 1024.0)
 
-/** 图表卡：surface 底（设计包 .chart-card）、标题顶部；空态为居中图标 + 占位文案。 */
-@Composable
-private fun ChartCard(
-    title: String,
-    empty: Boolean,
-    emptyText: String,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    Surface(
-        // 高度由调用方 weight(1f) 决定；不叠 heightIn（在精确约束下无效，见调用处注释）
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-    ) {
-        Column(Modifier.fillMaxSize().padding(16.dp)) {
-            Text(
-                title,
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Box(
-                Modifier.fillMaxWidth().weight(1f),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (empty) {
-                    // 统一空态组件（STATUS 3.4 终审形态：28dp 弱图标 + 一句话）
-                    EmptyHint(Icons.Outlined.Insights, emptyText)
-                } else {
-                    content()
-                }
-            }
-        }
-    }
-}
+// ---- 图表 ----
 
 /** CPU 折线：最近 60 个采样，0-100% 映射全高，附 0/50/100 三条基线。 */
 @Composable
 private fun CpuChart(history: List<Double>) {
-    val lineColor = MaterialTheme.colorScheme.primary
+    val extras = LocalBareZenColors.current
     val gridColor = MaterialTheme.colorScheme.outlineVariant
     Canvas(Modifier.fillMaxSize()) {
         listOf(0f, 0.5f, 1f).forEach { g ->
@@ -272,7 +350,7 @@ private fun CpuChart(history: List<Double>) {
                 val y = size.height * (1f - (v / 100.0).toFloat().coerceIn(0f, 1f))
                 if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
             }
-            drawPath(path, color = lineColor, style = Stroke(width = 2.dp.toPx()))
+            drawPath(path, color = extras.metricCpu, style = Stroke(width = 2.dp.toPx()))
         }
     }
 }
@@ -280,8 +358,8 @@ private fun CpuChart(history: List<Double>) {
 /** 磁盘用量：每个挂载点一行，挂载点 + 比例条 + 百分比（不引入图表库）。 */
 @Composable
 private fun DiskBars(disks: List<DiskUsage>) {
-    val trackColor = MaterialTheme.colorScheme.outlineVariant
-    val barColor = MaterialTheme.colorScheme.primary
+    val extras = LocalBareZenColors.current
+    val trackColor = MaterialTheme.colorScheme.outline
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         disks.take(6).forEach { d ->
             Row(
@@ -298,15 +376,17 @@ private fun DiskBars(disks: List<DiskUsage>) {
                     modifier = Modifier.width(96.dp),
                 )
                 Box(
-                    Modifier.weight(1f)
-                        .height(8.dp)
-                        .background(trackColor, RoundedCornerShape(4.dp)),
+                    Modifier
+                        .weight(1f)
+                        .height(6.dp)
+                        .background(trackColor, RoundedCornerShape(3.dp)),
                 ) {
                     val fraction = (d.capacityPct / 100.0).toFloat().coerceIn(0f, 1f)
                     Box(
-                        Modifier.fillMaxHeight()
+                        Modifier
+                            .fillMaxHeight()
                             .fillMaxWidth(fraction)
-                            .background(barColor, RoundedCornerShape(4.dp)),
+                            .background(extras.metricLoad, RoundedCornerShape(3.dp)),
                     )
                 }
                 Text("${d.capacityPct}%", fontSize = 12.sp, style = BareZenMonoBody)

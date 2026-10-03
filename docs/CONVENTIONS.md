@@ -30,7 +30,10 @@
 ```
 com.barezen.ssh                     唯一根包
   app/        AppModel（连接状态机/路由）、Destination、SettingsModel
-  ui/theme/   Color.kt 令牌（val 名称稳定）、Theme.kt、Type.kt
+  ui/theme/   Color.kt 令牌（val 名称稳定）、Theme.kt（含 LocalBareZenColors /
+              BareZenSpace / BareZenSize）、Type.kt
+  ui/components/ Components.kt 通用控件库（Btn/Chip/Badge/Banner/Card/
+              StatusDot/SegmentedControl/Switch/Slider）——**各屏只从这里取控件**
   ui/screens/ 一屏一文件；设置页按分类拆 Settings*Section.kt
   ui/shell/   AppShell 布局骨架 + *Host 接线层（模型生命周期）
   ssh/        Ssh.kt 接口（commonMain）；jvmMain：JvmSshClient、ssh/metrics、ssh/sftp、ssh/forward
@@ -41,7 +44,14 @@ com.barezen.ssh                     唯一根包
 
 - 测试镜像源码路径：`commonTest` / `jvmTest`。
 - Compose 资源生成包固定 `com.barezen.ssh.generated.resources`（shared/build.gradle.kts `packageOfResClass`）。
-- 主题令牌：只改 `Color.kt` 的值，**val 名称不得变**；组件只消费 `MaterialTheme.colorScheme`，禁止硬编码颜色。
+- 主题令牌：只改 `Color.kt` 的值，**val 名称不得变**；组件只消费 `MaterialTheme.colorScheme`
+  与 `LocalBareZenColors.current`，禁止硬编码颜色。
+- **色彩角色纪律**（STATUS §3.5.2 确立，因 apple 调色板而有必要，违反即对比度不达标）：
+  - `BareZenAccent`（`#0A84FF`）只做**填充/图标**；当文字用请取 `BareZenAccentOnSubtle`（`#44A0FC`）。
+    原因：能让白字达 AA 的深蓝做暗底文字必然不足 4.5:1。
+  - 错误文字一律取 `LocalBareZenColors.current.onErrorContainer`，不取裸 `colorScheme.error`
+    （后者在 `elevated` 底与 14% tint 底上均不足 4.5:1）。
+  - 任何新增文字/背景组合，必须在 `ThemeColorsTest` 的 AA 用例里补上对应断言。
 
 ## 4. TDD 与测试规则
 
@@ -83,4 +93,6 @@ timeout -k 15 900 ./gradlew --no-daemon --init-script /home/lin/tmp/barezen-ssh-
 
 - init 脚本在项目外 `/home/lin/tmp/barezen-ssh-init.gradle`（tmpfs 会丢，丢后按 DEVELOPMENT.md 第 2.1 节重建）。
 - `--rerun` 是 per-task flag 必须紧跟任务名；多任务强制重跑用 `--rerun-tasks`。
-- 当前基线：**456 用例 / 0 失败**（2026-10-02 T-3 后；T-1 前为 367）。低于此数或出现失败即门禁不过。
+- 当前基线：**575 用例 / 0 失败**（2026-10-03 界面重设计后；重设计前为 567，新增 `ComponentsTest` 8 例）。
+  低于此数或出现失败即门禁不过。
+  重设计触及 33 例（词表/布局/令牌变更），变更台账见 `docs/STATUS.md` §3.5.4。

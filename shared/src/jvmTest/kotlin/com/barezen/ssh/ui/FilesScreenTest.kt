@@ -40,8 +40,7 @@ class FilesScreenTest {
         setContent { BareZenTheme { FilesScreen() } }
         onNodeWithText("连接后可管理文件").assertIsDisplayed()
         onNodeWithText("上传").assertIsNotEnabled()
-        onNodeWithText("刷新").assertIsNotEnabled()
-        onNodeWithText("新建文件夹").assertIsNotEnabled()
+        onNodeWithText("下载").assertIsNotEnabled()
     }
 
     // ---- 已连接：列表渲染 ----
@@ -55,8 +54,10 @@ class FilesScreenTest {
         onNodeWithText("1.5 KB").assertIsDisplayed()   // 1500B -> 1.4648KB 四舍五入
         onNodeWithText("/").assertIsDisplayed()
         onNodeWithText("上传").assertIsEnabled()
-        onNodeWithText("刷新").assertIsEnabled()
-        onNodeWithText("新建文件夹").assertIsEnabled()
+        // 表头三列 + pane 标题
+        onNodeWithText("名称").assertIsDisplayed()
+        onNodeWithText("大小").assertIsDisplayed()
+        onNodeWithText("修改时间").assertIsDisplayed()
     }
 
     @OptIn(ExperimentalTestApi::class)
@@ -86,7 +87,7 @@ class FilesScreenTest {
             waitUntil(timeoutMillis = 10_000) {
                 onAllNodesWithText("取消").fetchSemanticsNodes().isNotEmpty()
             }
-            onNodeWithText("传输任务").assertIsDisplayed()
+            onNodeWithText("传输队列").assertIsDisplayed()
             latch.countDown()
             waitUntil(timeoutMillis = 10_000) {
                 onAllNodesWithText("完成").fetchSemanticsNodes().isNotEmpty()
