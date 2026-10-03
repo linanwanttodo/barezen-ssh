@@ -107,6 +107,8 @@ jobs:
       - name: 构建安装包
         # Linux 额外产出**单文件** AppImage：Compose 的 packageAppImage 只给目录，
         # 单文件由 packageSingleAppImage 调 appimagetool 合成（见 desktopApp/build.gradle.kts）
+        # shell: bash —— Windows runner 默认是 PowerShell，不认识 [[ ]] 与 else 分支写法
+        shell: bash
         run: |
           if [ "${{ runner.os }}" = "Linux" ]; then
             ./gradlew :desktopApp:packageDistributionForCurrentOS :desktopApp:packageSingleAppImage --stacktrace
@@ -136,27 +138,30 @@ jobs:
           fi
 
       - name: AppImage 可运行性冒烟
-        # AppImage 运行需 fuse2，CI runner 没有；用 --appimage-extract 验证
-        # 「能解包且入口可执行」——足以证明产物结构完整，不会卡在「下下来根本跑不了」。
+        # AppImage 运行需 fuse2，CI runner 没有；用 --appimage-extract 验证结构完整。
+        # 入口不是 AppRun —— appimagetool 产出的是 .desktop + .DirIcon，AppRun 由
+        # 运行时的 FUSE 挂载生成。故这里校验「能解包 + 有 .desktop + 有主程序 + 无构建机绝对路径」。
+        # 最后一条最关键：Exec 写死绝对路径会让产物换台机器就打不开。
         if: runner.os == 'Linux'
         shell: bash
         run: |
           APPIMAGE=$(ls -1 dist/*.AppImage 2>/dev/null | head -1 || true)
           if [ -z "$APPIMAGE" ]; then
-            echo "未产出 AppImage，跳过冒烟"
-            exit 0
+            echo "::error::未产出 AppImage"
+            exit 1
           fi
           chmod +x "$APPIMAGE"
           cd dist
-          # 解包（有些环境无 FUSE 时 extract 仍可用）
-          ../$APPIMAGE --appimage-extract || \
-            (echo "::warning::AppImage 解包失败（可能缺 FUSE），跳过该项"; exit 0)
-          if [ -x squashfs-root/AppRun ]; then
-            echo "AppImage 解包成功，AppRun 可执行"
-          else
-            echo "::error::AppImage 缺少可执行的 AppRun"
+          "$APPIMAGE" --appimage-extract || \
+            { echo "::error::AppImage 无法解包，产物可能损坏"; exit 1; }
+          ROOT=squashfs-root
+          test -f "$ROOT"/*.desktop || { echo "::error::缺少 .desktop 入口"; exit 1; }
+          test -x "$ROOT"/bin/* || { echo "::error::缺少可执行主程序"; exit 1; }
+          if grep -q "${{ github.workspace }}" "$ROOT"/*.desktop; then
+            echo "::error::.desktop 的 Exec 含构建机绝对路径，产物不可搬运"
             exit 1
           fi
+          echo "AppImage 冒烟通过：可解包、入口齐备、Exec 可搬运"
 
       - name: 上传构件
         uses: actions/upload-artifact@v4
