@@ -35,12 +35,18 @@ compose.desktop {
                 TargetFormat.Pkg,
                 TargetFormat.Msi,
             )
-            packageName = "BareZen-SSH"
+            // jpackage 的 --name 必须是**合法标识符**：WiX(msi) 与 dmg 的 bundle 标识都拒绝
+            // 连字符，故用 CamelCase 的 barezen-ssh 作为 jpackage name，
+            // 而**用户可见的应用名**（Windows 开始菜单 / macOS 应用名 / Linux .desktop）
+            // 仍由下面的 modules / 各平台描述字段给成 "BareZen-SSH"。
+            packageName = "barezen-ssh"
             // 版本单一真相源在 gradle.properties；不要在这里硬编码
             packageVersion = providers.gradleProperty("barezen.version").get()
             // jpackage 需要显式模块清单（无模块化 descriptor 的 classpath jar 应用）
             includeAllModules = true
-            description = "BareZen-SSH：跨平台 SSH 客户端（终端 / SFTP / 端口转发 / 主机监控 / AI 运维侧栏）"
+            // 说明文本保持 ASCII：WiX(msi) 与 pkg 的描述字段对非 ASCII 处理不一致，
+            // 中文会让 msi 直接失败。中文产品名放在 UI 里，不放打包元数据。
+            description = "BareZen-SSH: cross-platform SSH client (terminal / SFTP / port forwarding / host metrics / AI ops sidebar)"
             vendor = "BareZen"
             // 图标：Compose 1.12 的 DSL 既无 linuxIcon/macIcon 也无 jpackageArgs，
             // 故图标由各打包路径自行处理：
@@ -68,23 +74,27 @@ compose.desktop {
  */
 // 目录/文件路径在**配置期**就解析成纯 java.io.File：
 // 捕获 DirectoryProperty/RegularFile provider 进 doLast 闭包同样会破坏配置缓存。
+// 与 nativeDistributions.packageName 同源（jpackage name 必须是合法标识符，见那里注释）
+val appImageAppName = "barezen-ssh"
 val appImageDirPath = File(
     layout.buildDirectory.get().asFile,
-    "compose/binaries/main-release/app/BareZen-SSH",
+    "compose/binaries/main-release/app/$appImageAppName",
 ).absolutePath
 val appImageOutPath = File(
     layout.buildDirectory.get().asFile,
-    "compose/binaries/main-release/app/BareZen-SSH.AppImage",
+    "compose/binaries/main-release/app/$appImageAppName.AppImage",
 ).absolutePath
 
-// 配置期捕获：doLast 里访问 project 会与配置缓存冲突（本项目 configuration-cache=true）。
-// 名称与 nativeDistributions.packageName 一致；两处同源在此显式对齐，避免隐式耦合。
-val appImageAppName = "BareZen-SSH"
 val appImageExecName = "bin/" + appImageAppName
 // 资源路径用纯 String 在配置期定好：任何 Gradle 脚本对象（layout/project/file()）
 // 捕获进闭包都会让配置缓存报 "cannot serialize Gradle script object references"。
 // 运行时再由 File 解析成普通 java.io.File，不持有任何 Gradle 对象。
-val appIconRelPath = "src/main/resources/icons/icon_256.png"
+// 注意：必须用配置期解析的绝对路径。doLast 里的 File("src/...") 以 Gradle 工作目录
+// （项目根）为基准，会指向 <root>/src/... 而非 <root>/desktopApp/src/...。
+val appIconAbsPath: String = File(
+    layout.projectDirectory.asFile,
+    "src/main/resources/icons/icon_256.png",
+).absolutePath
 
 val packageSingleAppImage by tasks.registering {
     description = "把 AppDir 合成单文件 AppImage（需 appimagetool）"
@@ -103,28 +113,32 @@ val packageSingleAppImage by tasks.registering {
         }
         // jpackage 的 AppDir 阶段**不生成** .desktop（那是 deb 的 jpackage 阶段才做的），
         // 而 appimagetool 强制要求 AppDir 根下有 .desktop，故这里补一份。
-        val execPath = "${dir.absolutePath}/$appImageExecName"
+        //
+        // Exec **绝不能写构建机的绝对路径**：AppImage 的意义就是可搬运，
+        // 写死绝对路径会让换台机器就启动不了。AppImage 运行时 $APPDIR 指向解包根目录，
+        // 故用 AppImage 规范的相对写法：$APPDIR/bin/<name>。
         val desktopFile = File(dir, "$appImageAppName.desktop")
-        if (!desktopFile.exists()) {
-            desktopFile.writeText(
-                """
-                [Desktop Entry]
-                Type=Application
-                Name=BareZen-SSH
-                Comment=跨平台 SSH 客户端（终端 / SFTP / 端口转发 / 主机监控 / AI 运维侧栏）
-                Exec=$execPath %f
-                Icon=$appImageAppName
-                Terminal=false
-                Categories=Network;
-                Keywords=ssh;sftp;terminal;remote;
-                """.trimIndent()
-            )
-            logger.lifecycle("[AppImage] 已补写 AppDir 根下的 ${desktopFile.name}（jpackage AppDir 阶段不产出它）")
-        }
+        // $APPDIR 必须是**字面量**（AppImage 运行期由 AppRun 展开），故用 ${'$'} 转义，
+        // 避免被 Kotlin 当模板变量插值。desktop-entry 规范：Exec 里的 $ 必须被双引号包裹，
+        // 且引号内还要再转义一层（\\$）——appimagetool 会按规范校验这两点。
+        desktopFile.writeText(
+            """
+            [Desktop Entry]
+            Type=Application
+            Name=BareZen-SSH
+            Comment=BareZen-SSH - cross-platform SSH client (terminal / SFTP / forwarding / metrics)
+            Exec="\${'$'}APPDIR/$appImageExecName" %f
+            Icon=$appImageAppName
+            Terminal=false
+            Categories=Network;
+            Keywords=ssh;sftp;terminal;remote;
+            """.trimIndent()
+        )
+        logger.lifecycle("[AppImage] 已写入 AppDir 根下的 ${desktopFile.name}（jpackage AppDir 阶段不产出它）")
         // 同理，AppDir 阶段也不产出图标；appimagetool 要求 <AppName>.png 在 AppDir 根下。
-        val appIcon = File(appIconRelPath)
-        val iconTarget = File(dir, "$appImageAppName.png")
-        if (appIcon.isFile && !iconTarget.exists()) {
+        val appIcon = File(appIconAbsPath)
+        val iconTarget = File(dir, "$appImageAppName.png")   // 必须与 .desktop 的 Icon= 同名
+        if (appIcon.isFile) {
             appIcon.copyTo(iconTarget, overwrite = true)
             logger.lifecycle("[AppImage] 已复制应用图标到 AppDir 根下（jpackage AppDir 阶段不产出它）")
         }
