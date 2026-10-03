@@ -23,22 +23,27 @@ compose.desktop {
         mainClass = "com.barezen.ssh.MainKt"
 
         nativeDistributions {
-            // 每个平台产出其原生支持的格式（jpackage 只能在宿主平台打包，不能交叉产出）：
+            // 每个平台只产出其原生支持的格式。**按当前宿主平台条件声明**，而不是把五种
+            // 格式全列出来让 jpackage 自己 SKIP：
             //   Linux   -> deb（包管理器）+ AppImage（免安装单文件）
             //   macOS   -> dmg（拖拽安装）+ pkg（安装器，可写 /Applications、支持升级链）
             //   Windows -> msi
-            // AppImage 是 Linux 专属、pkg 仅 macOS 有——故在错平台上对应任务自动 SKIP。
+            //
+            // 为什么不全列 + 靠 SKIP：AppImage 的 packageAppImage 与 dmg 的 packageDmg
+            // 会抢同一个 binaries/<variant>/app 目录，Gradle 判为「未声明依赖的隐式冲突」
+            // 并让 macOS 构建失败（实测）。按平台条件声明从根上避免两个任务同时进入图。
+            val hostOs = System.getProperty("os.name").orEmpty()
+            val onMac = hostOs.contains("Mac") || hostOs.contains("Darwin")
+            val onWindows = hostOs.contains("Windows")
             targetFormats(
-                TargetFormat.Deb,
-                TargetFormat.AppImage,
-                TargetFormat.Dmg,
-                TargetFormat.Pkg,
-                TargetFormat.Msi,
+                if (onMac) TargetFormat.Dmg else TargetFormat.Deb,
+                if (onWindows) TargetFormat.Msi else TargetFormat.AppImage,
+                *if (onMac) arrayOf(TargetFormat.Pkg) else emptyArray(),
             )
             // jpackage 的 --name 必须是**合法标识符**：WiX(msi) 与 dmg 的 bundle 标识都拒绝
-            // 连字符，故用 CamelCase 的 barezen-ssh 作为 jpackage name，
+            // 连字符，故用 barezen-ssh；
             // 而**用户可见的应用名**（Windows 开始菜单 / macOS 应用名 / Linux .desktop）
-            // 仍由下面的 modules / 各平台描述字段给成 "BareZen-SSH"。
+            // 仍由各平台的显示名字段给成 "BareZen-SSH"。
             packageName = "barezen-ssh"
             // 版本单一真相源在 gradle.properties；不要在这里硬编码
             packageVersion = providers.gradleProperty("barezen.version").get()
@@ -103,6 +108,9 @@ val packageSingleAppImage by tasks.registering {
     // 声明为不兼容，让 Gradle 每次重跑而不是尝试缓存。
     // 打包本就低频，这个取舍是划算的——不为省几秒而把构建脚本写成一堆取巧的常量捕获。
     notCompatibleWithConfigurationCache("执行期解析 appimagetool 路径并启动外部进程")
+    // 只依赖 **Release** 版 AppDir：非 Release 的 packageAppImage 与 packageDmg 共用
+    // binaries/main/app 目录，Gradle 会判为「未声明依赖的隐式冲突」（macOS 上直接失败）。
+    // Release 走 main-release，与 dmg 的 main/app 不重叠。
     dependsOn("packageReleaseAppImage")
     inputs.dir(appImageDirPath).optional()
     outputs.file(appImageOutPath)
