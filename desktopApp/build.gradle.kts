@@ -192,3 +192,19 @@ val packageSingleAppImage by tasks.registering {
     }
 }
 
+/**
+ * 消除 AppDir 目录的 Gradle 隐式依赖冲突。
+ *
+ * Compose 插件**静态**为所有 jpackage 任务注册了同一个 AppDir 输出
+ * （binaries/<variant>/app），与 targetFormats 无关。于是即便 macOS 不再声明
+ * AppImage，Gradle 仍认为 packageDmg 读了 packageAppImage 的输出、却没声明依赖，
+ * 直接判为隐式冲突并让构建失败（实测两次）。
+ *
+ * 这里只声明执行顺序（mustRunAfter），不改谁产出什么：
+ * macOS 上 packageAppImage 不在任务图里，声明是无害的空操作；
+ * Linux 上两者抢同一目录时也保证 AppImage 先于 deb。
+ * 真正的隔离靠上面的 targetFormats 按平台条件声明。
+ */
+tasks.matching { it.name == "packageDmg" || it.name == "packagePkg" }.configureEach {
+    mustRunAfter("packageAppImage")
+}
