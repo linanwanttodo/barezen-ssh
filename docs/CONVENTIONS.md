@@ -94,6 +94,6 @@ timeout -k 15 900 ./gradlew --no-daemon --init-script /home/lin/tmp/barezen-ssh-
 
 - init 脚本在项目外 `/home/lin/tmp/barezen-ssh-init.gradle`（tmpfs 会丢，丢后按 DEVELOPMENT.md 第 2.1 节重建）。
 - `--rerun` 是 per-task flag 必须紧跟任务名；多任务强制重跑用 `--rerun-tasks`。
-- 当前基线：**575 用例 / 0 失败**（2026-10-03 界面重设计后；重设计前为 567，新增 `ComponentsTest` 8 例）。
+- 当前基线：**608 例 / 0 失败**（2026-10-03 界面重设计与三轮补齐后；重设计前为 567）。
   低于此数或出现失败即门禁不过。
   重设计触及 33 例（词表/布局/令牌变更），变更台账见 `docs/STATUS.md` §3.5.4。

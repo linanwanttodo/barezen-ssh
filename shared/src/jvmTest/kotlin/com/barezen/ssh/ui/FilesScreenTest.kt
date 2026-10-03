@@ -21,6 +21,7 @@ import java.nio.file.Files
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class FilesScreenTest {
@@ -38,7 +39,7 @@ class FilesScreenTest {
     @OptIn(ExperimentalTestApi::class)
     @Test fun disconnectedShowsHintAndDisablesActions() = runComposeUiTest {
         setContent { BareZenTheme { FilesScreen() } }
-        onNodeWithText("连接后可管理文件").assertIsDisplayed()
+        onNodeWithText("连接后可管理远程文件").assertIsDisplayed()
         onNodeWithText("上传").assertIsNotEnabled()
         onNodeWithText("下载").assertIsNotEnabled()
     }
@@ -55,9 +56,10 @@ class FilesScreenTest {
         onNodeWithText("/").assertIsDisplayed()
         onNodeWithText("上传").assertIsEnabled()
         // 表头三列 + pane 标题
-        onNodeWithText("名称").assertIsDisplayed()
-        onNodeWithText("大小").assertIsDisplayed()
-        onNodeWithText("修改时间").assertIsDisplayed()
+        // 表头两个 pane 各一份
+        listOf("名称", "大小", "修改时间").forEach {
+            assertEquals(2, onAllNodesWithText(it).fetchSemanticsNodes().size, "表头「$it」应为两栏各一份")
+        }
     }
 
     @OptIn(ExperimentalTestApi::class)
@@ -129,7 +131,8 @@ class FilesScreenTest {
     @Test fun emptyDirectoryShowsPlaceholder() = runComposeUiTest {
         val emptyModel = newModel(FakeSftpFs(mapOf("/" to emptyList())))
         setContent { BareZenTheme { FilesScreen(emptyModel) } }
-        onNodeWithText("空目录").assertIsDisplayed()
+        // 双栏布局下本地栏与远程栏都可能空 -> 「空目录」出现两次
+        assertTrue(onAllNodesWithText("空目录").fetchSemanticsNodes().isNotEmpty())
         assertTrue(onAllNodesWithText("zeta.txt").fetchSemanticsNodes().isEmpty())
     }
 

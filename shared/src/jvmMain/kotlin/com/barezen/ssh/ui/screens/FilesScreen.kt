@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -56,6 +57,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.barezen.ssh.ssh.SftpEntry
 import com.barezen.ssh.ssh.sftp.FileSizeFormatter
+import com.barezen.ssh.ssh.sftp.LocalEntry
+import com.barezen.ssh.ssh.sftp.LocalFsModel
+import com.barezen.ssh.ssh.sftp.LocalFsState
 import com.barezen.ssh.ssh.sftp.SftpModel
 import com.barezen.ssh.ssh.sftp.SftpPaths
 import com.barezen.ssh.ssh.sftp.RemoteNameValidator
@@ -110,10 +114,13 @@ const val FILE_RENAME_PREFIX = "file-rename-"
 @Composable
 fun FilesScreen(
     model: SftpModel? = null,
+    localModel: LocalFsModel? = null,
     pickUploadFiles: () -> List<String> = ::chooseUploadFiles,
     pickSaveDir: () -> String? = ::chooseSaveDir,
 ) {
     val state = model?.state?.collectAsState()?.value
+    val localState = localModel?.state?.collectAsState()?.value
+        ?: LocalFsState(cwd = "", entries = emptyList())
     val tasks = model?.transfers?.collectAsState()?.value ?: emptyList()
     var showMkdirDialog by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<SftpEntry?>(null) }
@@ -155,35 +162,45 @@ fun FilesScreen(
             )
         }
 
-        // 主体
-        if (model == null || state == null) {
-            Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                EmptyHint(Icons.Outlined.Folder, "连接后可管理文件")
-            }
-        } else {
-            FilePane(
-                title = "远程",
-                entries = state.entries,
-                path = state.cwd,
-                canGoUp = state.cwd != "/",
-                loading = state.loading,
-                onGoUp = { model.enter("..") },
-                onRefresh = { model.refresh() },
-                onMkdir = { showMkdirDialog = true },
-                entryContent = { entry ->
-                    EntryRow(
-                        model = model,
-                        entry = entry,
-                        pickSaveDir = pickSaveDir,
-                        onDelete = { pendingDelete = entry },
-                        onRename = { pendingRename = entry },
-                    )
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-
+        // 主体：**双栏**（本地 | 远程），对应 apple.css `.file-workspace { grid 1fr 1fr }`。
+        // 未连接时远程栏显示未连接态；**本地栏仍然可用**——浏览本机文件不需要 SSH 连接。
+        Row(
+            Modifier.fillMaxWidth().weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(BareZenSpace.lg),
+        ) {
+            LocalPane(
+                state = localState,
+                onEnter = { localModel?.enter(it) },
+                onRefresh = { localModel?.refresh() },
+                onPickDir = { pickSaveDir()?.let { localModel?.openPath(it) } },
+                modifier = Modifier.weight(1f),
             )
+            if (model == null || state == null) {
+                Box(Modifier.weight(1f).fillMaxSize(), contentAlignment = Alignment.Center) {
+                    EmptyHint(Icons.Outlined.Folder, "连接后可管理远程文件")
+                }
+            } else {
+                FilePane(
+                    title = "远程",
+                    entries = state.entries,
+                    path = state.cwd,
+                    canGoUp = state.cwd != "/",
+                    loading = state.loading,
+                    onGoUp = { model.enter("..") },
+                    onRefresh = { model.refresh() },
+                    onMkdir = { showMkdirDialog = true },
+                    entryContent = { entry ->
+                        EntryRow(
+                            model = model,
+                            entry = entry,
+                            pickSaveDir = pickSaveDir,
+                            onDelete = { pendingDelete = entry },
+                            onRename = { pendingRename = entry },
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
 
         // 底部传输队列条（apple.css `.transfer-queue`，44dp）
@@ -223,6 +240,147 @@ fun FilesScreen(
             onDismiss = { pendingRename = null },
         )
     }
+}
+
+/** 本地 pane：与远程 pane 同构，但只浏览（传输由远程侧发起）。 */
+@Composable
+private fun LocalPane(
+    state: LocalFsState,
+    onEnter: (String) -> Unit,
+    onRefresh: () -> Unit,
+    onPickDir: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(10.dp)
+    Surface(
+        modifier = modifier,
+        color = colors.surfaceContainerLow,
+        shape = shape,
+        border = BorderStroke(1.dp, colors.outline),
+    ) {
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(colors.surfaceContainer)
+                    .padding(horizontal = BareZenSpace.lg, vertical = BareZenSpace.md),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("本地", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = colors.onSurface)
+                Spacer(Modifier.weight(1f))
+                Text("${state.entries.size} 项", fontSize = 11.sp, color = colors.onSurfaceVariant)
+            }
+            HorizontalDivider(color = colors.outline)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = BareZenSpace.md, vertical = BareZenSpace.sm),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(BareZenSpace.sm),
+            ) {
+                Btn(
+                    "", { onEnter("..") },
+                    kind = BtnKind.secondary, small = true, enabled = state.canGoUp,
+                    icon = Icons.Outlined.ArrowUpward, iconContentDescription = "上级目录",
+                )
+                Text(
+                    state.cwd,
+                    Modifier.weight(1f),
+                    style = BareZenMonoBody,
+                    fontSize = 12.sp,
+                    color = colors.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Btn(
+                    "", onRefresh,
+                    kind = BtnKind.secondary, small = true,
+                    icon = Icons.Outlined.Refresh, iconContentDescription = "刷新",
+                )
+                Btn(
+                    "", onPickDir,
+                    kind = BtnKind.secondary, small = true,
+                    icon = Icons.Outlined.FolderOpen, iconContentDescription = "选择目录",
+                )
+            }
+            if (state.error != null) {
+                Text(
+                    state.error,
+                    Modifier.fillMaxWidth().padding(horizontal = BareZenSpace.lg, vertical = 6.dp),
+                    fontSize = 12.sp,
+                    color = LocalBareZenColors.current.onErrorContainer,
+                )
+            }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(colors.surfaceContainer)
+                    .padding(horizontal = BareZenSpace.lg, vertical = 6.dp),
+            ) {
+                Text("名称", Modifier.weight(2f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = colors.onSurfaceVariant)
+                Text("大小", Modifier.weight(1f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = colors.onSurfaceVariant)
+                Text("修改时间", Modifier.weight(1f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = colors.onSurfaceVariant)
+            }
+            HorizontalDivider(color = colors.outlineVariant)
+            Box(Modifier.weight(1f)) {
+                if (state.entries.isEmpty()) {
+                    EmptyHint(Icons.Outlined.Folder, "空目录")
+                } else {
+                    LazyColumn(Modifier.fillMaxSize()) {
+                        items(state.entries) { e ->
+                            LocalEntryRow(e, onEnter)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 本地列表行：目录可点进入；文件行不提供动作（传输从远程栏发起）。 */
+@Composable
+private fun LocalEntryRow(entry: LocalEntry, onEnter: (String) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(34.dp)
+            .background(if (hovered) colors.surfaceContainerHighest else Color.Transparent)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                enabled = entry.isDirectory,
+            ) { onEnter(entry.name) }
+            .padding(horizontal = BareZenSpace.lg),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            entry.name,
+            Modifier.weight(2f),
+            fontSize = 12.sp,
+            color = colors.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            if (entry.isDirectory) "—" else FileSizeFormatter.format(entry.size),
+            Modifier.weight(1f),
+            fontSize = 12.sp,
+            color = colors.onSurfaceVariant,
+            maxLines = 1,
+        )
+        Text(
+            mtimeFormat.format(Date(entry.mtimeMs)),
+            Modifier.weight(1f),
+            fontSize = 12.sp,
+            color = colors.onSurfaceVariant,
+            maxLines = 1,
+        )
+    }
+    HorizontalDivider(color = colors.outlineVariant)
 }
 
 /**

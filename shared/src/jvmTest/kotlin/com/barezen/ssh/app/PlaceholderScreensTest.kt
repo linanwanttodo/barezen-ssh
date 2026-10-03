@@ -27,7 +27,7 @@ class PlaceholderScreensTest {
         onNodeWithText("下载").assertIsNotEnabled()
         // 传输队列条恒在（44dp 底条），空态显示「0 个活跃任务」
         onNodeWithText("传输队列").assertIsDisplayed()
-        onNodeWithText("连接后可管理文件").assertIsDisplayed()
+        onNodeWithText("连接后可管理远程文件").assertIsDisplayed()
     }
 
     @OptIn(ExperimentalTestApi::class)

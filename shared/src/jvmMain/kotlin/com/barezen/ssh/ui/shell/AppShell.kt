@@ -55,6 +55,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.awt.LocalAwtWindow
 import androidx.compose.ui.awt.LocalAwtWindow
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.utf16CodePoint
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -128,11 +134,35 @@ fun BareZenAppContent(model: AppModel, modifier: Modifier = Modifier) {
         )
     }
     val terminalBridge = remember { TerminalBridge() }
+    // 命令面板（Ctrl/Cmd+K）。命令由当前状态派生，见 buildPalette 的取舍说明。
+    var paletteOpen by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<com.barezen.ssh.servers.Server?>(null) }
+    // 由面板触发「编辑服务器」：ServersScreen 内的编辑对话框是它私有的，
+    // 这里改走一次导航 + 选中，让面板命令落到服务器页再编辑（不为一条命令重开对话框状态机）。
+    var editRequestServerId by remember { mutableStateOf<String?>(null) }
 
-    Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+    Column(
+        modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
+            // 全局快捷键：Ctrl+K / Cmd+K 打开命令面板。放在最外层，
+            // 任何屏任何焦点下都成立（符合「命令面板」的预期）。
+            .onPreviewKeyEvent { ev ->
+                // Ctrl+K / Cmd+K。用 KeyEventType + utf16 码点判断，
+                // 避开 isCtrlPressed 之类的修饰键属性（桌面端它们是值类，跨版本不稳）。
+                val isK = ev.utf16CodePoint == 'k'.code
+                val combo = ev.isCtrlPressed || ev.isMetaPressed
+                if (ev.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && isK && combo) {
+                    paletteOpen = true
+                    true
+                } else {
+                    false
+                }
+            }
+    ) {
         // 标题栏横跨整个窗口宽度（含侧栏上方），这是「自建窗口 chrome」的前提：
         // 窗口按钮必须贴在窗口右上角，屏名在内容区上方居中于右半区。
-        AppTitlebar(screenName = model.current.label)
+        AppTitlebar(screenName = model.current.label, onOpenPalette = { paletteOpen = true })
         Row(Modifier.weight(1f).fillMaxWidth()) {
             AppSidebar(
                 model = model,
@@ -232,6 +262,65 @@ fun BareZenAppContent(model: AppModel, modifier: Modifier = Modifier) {
 
     // 连接中/失败覆盖层：与 ConnectDialog 同为壳级挂载
     ConnectFlowOverlays(model)
+
+    // ---- 命令面板（Ctrl/Cmd+K）----
+    if (paletteOpen) {
+        val connectedIds = model.registry.sessions
+            .filter { it.state is com.barezen.ssh.ssh.ConnectionState.Connected }
+            .map { it.server.id }
+            .toSet()
+        CommandPaletteDialog(
+            items = com.barezen.ssh.app.buildPalette(model.servers, model.current, connectedIds),
+            onPick = { item ->
+                paletteOpen = false
+                when (item.kind) {
+                    com.barezen.ssh.app.PaletteItem.Kind.NAVIGATE -> {
+                        val dest = Destination.entries.firstOrNull { "nav-${it.name}" == item.id }
+                        if (dest != null) model.navigate(dest)
+                    }
+                    com.barezen.ssh.app.PaletteItem.Kind.CONNECT ->
+                        model.servers.firstOrNull { "connect-${it.id}" == item.id }
+                            ?.let(model::requestConnect)
+                    com.barezen.ssh.app.PaletteItem.Kind.EDIT_SERVER -> {
+                        editRequestServerId = item.id.removePrefix("edit-")
+                        model.navigate(Destination.SERVERS)
+                    }
+                    com.barezen.ssh.app.PaletteItem.Kind.DELETE_SERVER ->
+                        pendingDelete = model.servers.firstOrNull { "delete-${it.id}" == item.id }
+                }
+            },
+            onDismiss = { paletteOpen = false },
+        )
+    }
+
+    // 删除服务器二次确认：破坏性操作不可撤销，必须确认（与文件删除同一纪律）
+    pendingDelete?.let { server ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("删除服务器") },
+            text = {
+                Text(
+                    "确定删除「${server.name}」（${server.host}）？\n" +
+                        "该操作不可撤销；已保存的凭据条目也会一并失效。",
+                    fontSize = 13.sp,
+                )
+            },
+            confirmButton = {
+                com.barezen.ssh.ui.components.Btn(
+                    "删除",
+                    {
+                        model.removeServer(server.id)
+                        pendingDelete = null
+                    },
+                    kind = com.barezen.ssh.ui.components.BtnKind.danger,
+                    modifier = Modifier.testTag("confirm-delete-server"),
+                )
+            },
+            dismissButton = {
+                com.barezen.ssh.ui.components.Btn("取消", { pendingDelete = null })
+            },
+        )
+    }
 }
 
 /**
@@ -446,7 +535,7 @@ private fun currentAwtWindow(): java.awt.Window? = LocalAwtWindow.current
  * 系统不再提供拖拽，手工拖动只能靠它。
  */
 @Composable
-private fun AppTitlebar(screenName: String) {
+private fun AppTitlebar(screenName: String, onOpenPalette: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val win = LocalWindowController.current
     // LocalAwtWindow 是实验 API：无边框窗口下拖动必须拿到 AWT Window 才能改屏幕坐标，
@@ -472,12 +561,51 @@ private fun AppTitlebar(screenName: String) {
                 .windowDragHandle(awtWindow, onClick = { win.toggleMaximize() })
                 .testTag("titlebar-drag-area"),
         )
+        // 命令面板入口：窗口三键在右，这里是唯一的「工具」键位。
+        // 快捷键 Ctrl/Cmd+K 等价，标题栏也留一个可点的入口（不只靠快捷键）。
+        // 命令面板入口：窗口三键在右，这里是唯一的「工具」键位。
+        // 与 Ctrl/Cmd+K 等价——不只靠快捷键，鼠标也能到。
+        Box(
+            Modifier
+                .height(28.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(colors.surfaceContainer)
+                .border(1.dp, colors.outline, RoundedCornerShape(8.dp))
+                .windowDragHandle(awtWindow)
+                .clickable { onOpenPalette() }
+                .semantics { contentDescription = "搜索命令" }
+                .testTag("titlebar-key-命令面板")
+                .padding(horizontal = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("Q", fontSize = 11.sp, color = colors.onSurfaceVariant)
+        }
+        Spacer(Modifier.width(8.dp))
         WindowButton(Icons.Outlined.HorizontalRule, "最小化") { win.minimize() }
         WindowButton(
             icon = if (win.isMaximized) Icons.Outlined.FilterNone else Icons.Outlined.CropSquare,
             label = if (win.isMaximized) "还原" else "最大化",
         ) { win.toggleMaximize() }
         WindowButton(Icons.Filled.Close, "关闭", danger = true) { win.close() }
+    }
+}
+
+/** 标题栏工具键（apple.css `.titlebar-btn`）：等宽字形 + 描边，hover 提亮。 */
+@Composable
+private fun TitlebarKey(glyph: String, label: String, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        modifier
+            .height(28.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(colors.surfaceContainer)
+            .border(1.dp, colors.outline, RoundedCornerShape(8.dp))
+            .semantics { contentDescription = label }
+            .testTag("titlebar-key-$label")
+            .padding(horizontal = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(glyph, fontSize = 11.sp, color = colors.onSurfaceVariant)
     }
 }
 
@@ -527,6 +655,9 @@ private fun FilesHost(model: AppModel) {
     val active = model.registry.active
     val scope = rememberCoroutineScope()
     var sftpModel by remember { mutableStateOf<SftpModel?>(null) }
+    // 本地浏览模型与 SSH 会话**无关**：浏览本机文件不需要连接，
+    // 故不像 sftpModel 那样随会话创建/销毁（否则未连接时本地栏也不可用）。
+    val localModel = remember { com.barezen.ssh.ssh.sftp.LocalFsModel(scope) }
 
     LaunchedEffect(active?.id) {
         val session = active?.session
@@ -539,5 +670,5 @@ private fun FilesHost(model: AppModel) {
             sftpModel = null
         }
     }
-    FilesScreen(model = sftpModel)
+    FilesScreen(model = sftpModel, localModel = localModel)
 }
