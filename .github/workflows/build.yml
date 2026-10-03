@@ -151,8 +151,11 @@ jobs:
             exit 1
           fi
           chmod +x "$APPIMAGE"
+          # 在 dist/ 内部解包。注意 APPIMAGE 是**相对仓库根**的路径，
+          # cd 之后再用会找不到文件（上一版就栽在这）。
+          APPIMAGE_NAME=$(basename "$APPIMAGE")
           cd dist
-          "$APPIMAGE" --appimage-extract || \
+          "./$APPIMAGE_NAME" --appimage-extract || \
             { echo "::error::AppImage 无法解包，产物可能损坏"; exit 1; }
           ROOT=squashfs-root
           test -f "$ROOT"/*.desktop || { echo "::error::缺少 .desktop 入口"; exit 1; }
