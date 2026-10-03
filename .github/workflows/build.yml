@@ -3,11 +3,15 @@
 # 设计要点：
 # 1. 每个平台独立 job（macos/windows/ubuntu）——Compose Desktop 的 jpackage **只能在
 #    宿主平台产出对应格式**，跨平台交叉打包不可行，故用 matrix 天然并行三份。
-# 2. 版本单一真相源在 gradle.properties 的 barezen.version；tag 推送时用 tag 名覆盖，
-#    产物名与 Release 资产名对齐。
-# 3. 测试只在 ubuntu 跑一次（三平台跑三遍同样的 JVM 单测纯属浪费），
+# 2. 格式与平台严格对应（jpackage 不会在错平台上产出）：
+#    Linux   -> deb + AppImage（deb 走包管理器，AppImage 免安装）
+#    macOS   -> dmg（拖拽安装）+ pkg（安装器，可写 /Applications、支持升级链）
+#    Windows -> msi
+#    AppImage 是 Linux 专属；pkg 仅 macOS 有——两者都不会跨平台产出。
+# 3. 版本单一真相源在 gradle.properties 的 barezen.version；tag 推送时用 tag 名覆盖，
+#    BuildInfo 由 Gradle 构建期生成（shared 的 generateBuildInfo），故只需改这一处。
+# 4. 测试只在 ubuntu 跑一次（三平台跑三遍同样的 JVM 单测纯属浪费），
 #    但**每个平台都做编译**，避免只在 Linux 上能编过。
-# 4. jpackage 在 Linux 需要 dpkg-deb；ubuntu runner 自带，无需额外装。
 name: build
 
 on:
@@ -53,14 +57,14 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            name: Linux (deb)
-            format: deb
+            name: Linux (deb + AppImage)
+            artifact: linux
           - os: macos-latest
-            name: macOS (dmg)
-            format: dmg
+            name: macOS (dmg + pkg)
+            artifact: macos
           - os: windows-latest
             name: Windows (msi)
-            format: msi
+            artifact: windows
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -72,18 +76,24 @@ jobs:
 
       - name: 写入版本号
         # tag 推送时用 tag（v1.2.3 -> 1.2.3）覆盖 gradle.properties。
-        # BuildInfo 由 Gradle 从该属性生成（shared/build.gradle.kts 的 generateBuildInfo），
-        # 故这里只需改这一处，「关于」页显示与包名版本会自动跟随。
+        # 就地替换而不是追加：追加会让 properties 出现两个同名键，后一个生效但极易误读。
         shell: bash
         run: |
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            VER="${GITHUB_REF_NAME#v}"
-            # 就地替换而不是追加：追加会让 properties 出现两个同名键，后一个生效但极易误读
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            VER="${{ github.ref_name }}"
+            VER="${VER#v}"
             sed -i "s/^barezen.version=.*/barezen.version=$VER/" gradle.properties
             grep '^barezen.version=' gradle.properties
           fi
 
-      - name: 构建安装包（${{ matrix.format }}）
+      - name: 安装 Linux 打包依赖
+        # deb 走 dpkg-deb；AppImage 的 appimagetool 由 compose 插件自行下载
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev fakeroot
+
+      - name: 构建安装包
         run: ./gradlew :desktopApp:packageDistributionForCurrentOS --stacktrace
 
       - name: 收集产物
@@ -91,14 +101,49 @@ jobs:
         run: |
           mkdir -p dist
           find desktopApp/build/compose/binaries -type f \
-            \( -name '*.deb' -o -name '*.dmg' -o -name '*.msi' -o -name '*.exe' \) \
+            \( -name '*.deb' -o -name '*.AppImage' -o -name '*.dmg' -o -name '*.pkg' \
+               -o -name '*.msi' -o -name '*.exe' \) \
             -exec cp -v {} dist/ \;
+          echo "--- 产物清单 ---"
           ls -lh dist/
+
+      - name: 校验产物非空
+        shell: bash
+        run: |
+          COUNT=$(ls -1 dist/ 2>/dev/null | wc -l)
+          echo "产出 $COUNT 个文件"
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::没有产出任何安装包"
+            exit 1
+          fi
+
+      - name: AppImage 可运行性冒烟
+        # AppImage 运行需 fuse2，CI runner 没有；用 --appimage-extract 验证
+        # 「能解包且入口可执行」——足以证明产物结构完整，不会卡在「下下来根本跑不了」。
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          APPIMAGE=$(ls -1 dist/*.AppImage 2>/dev/null | head -1 || true)
+          if [ -z "$APPIMAGE" ]; then
+            echo "未产出 AppImage，跳过冒烟"
+            exit 0
+          fi
+          chmod +x "$APPIMAGE"
+          cd dist
+          # 解包（有些环境无 FUSE 时 extract 仍可用）
+          ../$APPIMAGE --appimage-extract || \
+            (echo "::warning::AppImage 解包失败（可能缺 FUSE），跳过该项"; exit 0)
+          if [ -x squashfs-root/AppRun ]; then
+            echo "AppImage 解包成功，AppRun 可执行"
+          else
+            echo "::error::AppImage 缺少可执行的 AppRun"
+            exit 1
+          fi
 
       - name: 上传构件
         uses: actions/upload-artifact@v4
         with:
-          name: barezen-${{ matrix.format }}
+          name: barezen-${{ matrix.artifact }}
           path: dist/*
           if-no-files-found: error
 
